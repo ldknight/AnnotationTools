@@ -64,14 +64,7 @@ def showdis():
         links.append([dir,dirname])
        
     return render_template('dirs.html',links=links)
-    dirs = os.listdir(static_path)
-    links = []
-    
-    for dir in dirs:
-        dirname="_".join(dir.split("_")[1:])
-        links.append = '<a href="/annotation/{}">{}</a><br>'.format(dir,dirname)
-        links += link
-    return render_template('dirs.html',links=links)
+
 
     
 
@@ -90,7 +83,7 @@ def annotation(imgs_path):
     if id>len(global_imgpaths[imgs_path])-1:
        id=len(global_imgpaths[imgs_path])-1
     
-    return render_template('annotation.html',id=id ,image_paths=[global_imgpaths[imgs_path][id]])
+    return render_template('annotation.html',id=id,dirpath=imgs_path ,image_paths=[global_imgpaths[imgs_path][id]])
 
     # return f'User Profile for User ID: {id}'
     
