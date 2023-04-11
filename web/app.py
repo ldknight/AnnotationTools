@@ -30,7 +30,6 @@ def upload():
     file = request.files['file']
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
-        # 将上传的文件保存到临时内存中
         folder_name = str(uuid.uuid4())
         folder_path = os.path.join('images', folder_name+"_"+filename.split(".")[0])
         os.makedirs(os.path.join(app.static_folder, folder_path))
@@ -53,7 +52,7 @@ def upload():
 
     return "Failed to process uploaded file"
 
-# /annotation/<path:filepath>?id=0 代表当filepath目录下第一张图片
+
 @app.route('/dirs', methods=['GET'])
 def showdis():
     dirs = os.listdir(static_path)
@@ -67,7 +66,7 @@ def showdis():
 
 
     
-
+# /annotation/<path:filepath>?id=0 代表当filepath目录下第一张图片
 @app.route('/annotation/<path:imgs_path>', methods=['GET'])
 def annotation(imgs_path):
     r_imgs_path=os.path.join(app.static_folder,"images", imgs_path)
