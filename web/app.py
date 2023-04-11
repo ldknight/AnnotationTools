@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, session
+from flask import Flask, render_template, request, session,redirect,url_for
 from zipfile import ZipFile
 from io import BytesIO
 from PIL import Image
@@ -57,13 +57,22 @@ def upload():
 @app.route('/dirs', methods=['GET'])
 def showdis():
     dirs = os.listdir(static_path)
-    links = ''
+    links = []
     
     for dir in dirs:
         dirname="_".join(dir.split("_")[1:])
-        link = '<a href="/annotation/{}">{}</a><br>'.format(dir,dirname)
+        links.append([dir,dirname])
+       
+    return render_template('dirs.html',links=links)
+    dirs = os.listdir(static_path)
+    links = []
+    
+    for dir in dirs:
+        dirname="_".join(dir.split("_")[1:])
+        links.append = '<a href="/annotation/{}">{}</a><br>'.format(dir,dirname)
         links += link
-    return links
+    return render_template('dirs.html',links=links)
+
     
 
 @app.route('/annotation/<path:imgs_path>', methods=['GET'])
@@ -74,14 +83,14 @@ def annotation(imgs_path):
                        if os.path.splitext(file)[1] in image_extensions]
         
         global_imgpaths[imgs_path]=image_files
-    id = int(request.args.get('id'))
-    if not id:
+    id = request.args.get('id')
+    if not id or int(id) <0:
         id=0
-    if id<0:
-        id=0
-    elif id>len(global_imgpaths[imgs_path])-1:
-        id=len(global_imgpaths[imgs_path])-1
-    return render_template('annotation.html', image_paths=[global_imgpaths[imgs_path][id]])
+    id=int(id)
+    if id>len(global_imgpaths[imgs_path])-1:
+       id=len(global_imgpaths[imgs_path])-1
+    
+    return render_template('annotation.html',id=id ,image_paths=[global_imgpaths[imgs_path][id]])
 
     # return f'User Profile for User ID: {id}'
     

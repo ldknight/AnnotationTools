@@ -4,11 +4,21 @@
     <title>Image Uploader</title>
 </head>
 <body>
-    <h1>Images</h1>
+    <a href="/">
+        <button>主页</button>
+    </a>
+    <a href="/annotation/5c35b1a2-29a8-4352-a546-c004b8582a3a_ApplicationFrameHost_15rPlbEF2X?id={{id-1}}">
+        <button>上一副</button>
+    </a>
+    <a href="/annotation/5c35b1a2-29a8-4352-a546-c004b8582a3a_ApplicationFrameHost_15rPlbEF2X?id={{id+1}}">
+        <button>下一副</button>
+    </a>
     <div id="image-container">
         {% for image_path in image_paths %}
             <img src="{{ url_for('static', filename=image_path) }}" alt="Image">
         {% endfor %}
     </div>
+
+
 </body>
 </html>

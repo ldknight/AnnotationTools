@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Image Uploader</title>
+</head>
+<body>
+    <a href="/">
+        <button>主页</button>
+    </a>
+    {% for dir in links %}
+        <a href="/annotation/{{dir[0]}}">{{dir[1]}}</a><br>
+    {% endfor %}
+
+
+</body>
+</html>
