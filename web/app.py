@@ -5,14 +5,16 @@ from PIL import Image
 from werkzeug.utils import secure_filename
 import os
 import uuid
+import glob
 
 app = Flask(__name__)
 ALLOWED_EXTENSIONS = {'zip'}
 app.secret_key = 'annotationmycz'
-directory_path="web/static/images"
+static_path="web/static/images"
 # 设置静态文件夹的路径
 app.static_folder = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'static')
-
+image_extensions = ['.jpg', '.jpeg', '.png', '.gif']
+global_imgpaths={}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -54,8 +56,9 @@ def upload():
 # /annotation/<path:filepath>?id=0 代表当filepath目录下第一张图片
 @app.route('/dirs', methods=['GET'])
 def showdis():
-    dirs = os.listdir(directory_path)
+    dirs = os.listdir(static_path)
     links = ''
+    
     for dir in dirs:
         dirname="_".join(dir.split("_")[1:])
         link = '<a href="/annotation/{}">{}</a><br>'.format(dir,dirname)
@@ -63,13 +66,25 @@ def showdis():
     return links
     
 
-@app.route('/annotation/<path:filepath>', methods=['GET'])
-def annotation(filepath):
-    id = request.args.get('id')
+@app.route('/annotation/<path:imgs_path>', methods=['GET'])
+def annotation(imgs_path):
+    r_imgs_path=os.path.join(app.static_folder,"images", imgs_path)
+    if imgs_path not in global_imgpaths:
+        image_files = [os.path.join("images",imgs_path,os.path.basename(file)) for file in glob.glob(os.path.join(r_imgs_path, '*')) 
+                       if os.path.splitext(file)[1] in image_extensions]
+        
+        global_imgpaths[imgs_path]=image_files
+    id = int(request.args.get('id'))
     if not id:
         id=0
+    if id<0:
+        id=0
+    elif id>len(global_imgpaths[imgs_path])-1:
+        id=len(global_imgpaths[imgs_path])-1
+    return render_template('annotation.html', image_paths=[global_imgpaths[imgs_path][id]])
 
-    return f'User Profile for User ID: {id}'
+    # return f'User Profile for User ID: {id}'
+    
 
 
 if __name__ == '__main__':
