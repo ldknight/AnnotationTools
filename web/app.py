@@ -86,7 +86,8 @@ def annotation(imgs_path):
     return render_template('annotation.html',id=id,dirpath=imgs_path ,image_paths=[global_imgpaths[imgs_path][id]])
 
     # return f'User Profile for User ID: {id}'
-    
+
+
 
 
 if __name__ == '__main__':
