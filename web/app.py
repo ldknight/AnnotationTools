@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, session,redirect,url_for
+from flask import Flask, render_template, request, session,redirect,url_for,jsonify
 from zipfile import ZipFile
 from io import BytesIO
 from PIL import Image
@@ -6,6 +6,20 @@ from werkzeug.utils import secure_filename
 import os
 import uuid
 import glob
+import numpy as np
+import torch
+import matplotlib.pyplot as plt
+import cv2
+from config import sam_checkpoint,device,model_type
+import sys
+from functools import wraps
+
+sys.path.append("..")
+from segment_anything import sam_model_registry, SamPredictor
+
+sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
+sam.to(device=device)
+predictor = SamPredictor(sam)
 
 app = Flask(__name__)
 ALLOWED_EXTENSIONS = {'zip'}
@@ -16,16 +30,27 @@ app.static_folder = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'st
 image_extensions = ['.jpg', '.jpeg', '.png', '.gif']
 global_imgpaths={}
 
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # 检查用户是否有有效的会话
+        if 'user_info' not in session:
+            # 如果没有会话，重定向到登录页面
+            return redirect(url_for(''))
+        # 如果有会话，继续处理请求
+        return f(*args, **kwargs)
+    return decorated_function
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-
 @app.route('/')
 def index():
+    session['user_info']={}
     return render_template('index.html')
 
-
 @app.route('/upload', methods=['POST'])
+@login_required
 def upload():
     file = request.files['file']
     if file and allowed_file(file.filename):
@@ -52,8 +77,8 @@ def upload():
 
     return "Failed to process uploaded file"
 
-
 @app.route('/dirs', methods=['GET'])
+@login_required
 def showdis():
     dirs = os.listdir(static_path)
     links = []
@@ -63,11 +88,11 @@ def showdis():
         links.append([dir,dirname])
        
     return render_template('dirs.html',links=links)
-
-
     
-# /annotation/<path:filepath>?id=0 代表当filepath目录下第一张图片
+    
+# /annotation/<path:filepath>?id=0&lens=2 从0开始返回两张图片地址
 @app.route('/annotation/<path:imgs_path>', methods=['GET'])
+@login_required
 def annotation(imgs_path):
     r_imgs_path=os.path.join(app.static_folder,"images", imgs_path)
     if imgs_path not in global_imgpaths:
@@ -75,17 +100,75 @@ def annotation(imgs_path):
                        if os.path.splitext(file)[1] in image_extensions]
         
         global_imgpaths[imgs_path]=image_files
+    totallens=len(global_imgpaths[imgs_path])
     id = request.args.get('id')
     if not id or int(id) <0:
         id=0
     id=int(id)
-    if id>len(global_imgpaths[imgs_path])-1:
-       id=len(global_imgpaths[imgs_path])-1
-    
+    if id>totallens-1:
+       id=totallens-1
+    lens=request.args.get('lens')
+    if not lens:
+        lens=1
+    lens=int(lens)
+    if lens<=0:
+        lens=1
+    elif lens>totallens:
+        lens=totallens
+    return global_imgpaths[imgs_path][id:id+lens]
     return render_template('annotation.html',id=id,dirpath=imgs_path ,image_paths=[global_imgpaths[imgs_path][id]])
 
-    # return f'User Profile for User ID: {id}'
+@app.route('/annotation_label')
+@login_required
+def annotation_label():
+    data = request.get_json()
+    masks = data['mask']
+    imageSrc = data["imageSrc"]
+    label = data["label"]
+    session['user_info'][imageSrc].append([imageSrc, masks, label])
+    return [imageSrc,masks,label]
+    
 
+@app.route('/handle_segment', methods=['POST'])
+@login_required
+def segment():
+    data = request.get_json()
+    input_point=None
+    input_label=None
+    input_box=None
+    if 'points' in data:
+        input_point=[]
+        input_label=[]
+        points = data['points']
+        for point in points:
+            input_point.append([point["x"],point["y"]])
+            input_label.append(point["label"])
+        input_point=np.array(input_point)
+        input_label=np.array(input_label)
+    if 'boxs' in data:
+        input_box=[]
+        boxs=data["boxs"]
+        for box in boxs:
+            input_box.append(box)
+        input_box=np.array(input_box)  
+    path=os.path.join(app.static_folder,data["imageSrc"][1:]).replace("/static/", "/", 1)
+    image = cv2.imread(path)
+    image = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
+    predictor.set_image(image)
+    masks, scores, _ = predictor.predict(
+    point_coords=input_point,
+    point_labels=input_label,
+    input_box=input_box,
+    multimask_output=True,
+    )
+    data={
+        'masks':masks.tolist(),
+        'scores':scores.tolist(),
+    }
+    session['user_info'][data["imageSrc"]]=[]
+    
+
+    return jsonify(data)
 
 
 
