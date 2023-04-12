@@ -166,10 +166,30 @@ def segment():
         'scores':scores.tolist(),
     }
     session['user_info'][data["imageSrc"]]=[]
-    
-
     return jsonify(data)
 
+
+@app.route('/get_labels', methods=['get'])
+@login_required
+def get_labels():
+    with open('labels.txt', 'r') as f:
+        content = f.read()
+    
+    # 按逗号分割字符串
+    data = content.split(',')
+    
+    # 返回给前端
+    return jsonify({'labels': data})
+
+@app.route('/set_labels', methods=['POST'])
+@login_required
+def set_labels():
+    data = request.get_json()
+    labels = data['labels']
+    with open('labels.txt', 'w') as f:
+        f.write(",".join(labels))
+        
+    return "set_labels_ok"
 
 
 if __name__ == '__main__':
