@@ -8,18 +8,19 @@ import uuid
 import glob
 import numpy as np
 import torch
+import json
 import matplotlib.pyplot as plt
 import cv2
 from config import sam_checkpoint,device,model_type
 import sys
 from functools import wraps
+from segment_anything import sam_model_registry, SamAutomaticMaskGenerator, SamPredictor
 
 sys.path.append("..")
-from segment_anything import sam_model_registry, SamPredictor
-
 sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
 sam.to(device=device)
 predictor = SamPredictor(sam)
+mask_generator = SamAutomaticMaskGenerator(sam)
 
 app = Flask(__name__)
 ALLOWED_EXTENSIONS = {'zip'}
@@ -115,7 +116,7 @@ def annotation(imgs_path):
         lens=1
     elif lens>totallens:
         lens=totallens
-    return global_imgpaths[imgs_path][id:id+lens]
+    # return global_imgpaths[imgs_path][id:id+lens]
     return render_template('annotation.html',id=id,dirpath=imgs_path ,image_paths=[global_imgpaths[imgs_path][id]])
 
 @app.route('/annotation_label')
@@ -127,8 +128,50 @@ def annotation_label():
     label = data["label"]
     session['user_info'][imageSrc].append([imageSrc, masks, label])
     return [imageSrc,masks,label]
-    
 
+def ndarray_to_list(d):
+    for value in d:
+        for key, v in value.items():
+            if key=="segmentation":
+                value[key]=np.where(v, 255, 0)
+                img=cv2.Canny(np.uint8(value[key]),50,100)
+                img[img < 255] = 0
+                row_indices, col_indices = np.where(img == 255)
+                value[key] = list(zip(row_indices, col_indices))
+                
+            if isinstance(value[key], np.ndarray):
+                value[key] = value[key].tolist()
+    return d
+
+class NpEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super(NpEncoder, self).default(obj)
+
+@app.route('/handle_autosegment', methods=['POST'])
+@login_required
+def autosegment():
+    data = request.get_json()
+    
+    path=os.path.join(app.static_folder,data["imageSrc"][1:]).replace("/static/", "/", 1)
+    image = cv2.imread(path)
+    image = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
+    path=os.path.join(app.static_folder,data["imageSrc"][1:]).replace("/static/", "/", 1)
+    masks = mask_generator.generate(image)
+    masks=ndarray_to_list(masks)
+    senddata={
+        'masks':masks,
+    }
+    
+    session['user_info'][data["imageSrc"]]=[]
+    senddata=json.dumps(senddata, cls=NpEncoder)
+    return jsonify(senddata)
+    
 @app.route('/handle_segment', methods=['POST'])
 @login_required
 def segment():
@@ -158,15 +201,15 @@ def segment():
     masks, scores, _ = predictor.predict(
     point_coords=input_point,
     point_labels=input_label,
-    input_box=input_box,
+    box=input_box,
     multimask_output=True,
     )
-    data={
+    senddata={
         'masks':masks.tolist(),
         'scores':scores.tolist(),
     }
     session['user_info'][data["imageSrc"]]=[]
-    return jsonify(data)
+    return jsonify(senddata)
 
 
 @app.route('/get_labels', methods=['get'])

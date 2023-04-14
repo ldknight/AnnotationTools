@@ -46,7 +46,7 @@
             // 发送点位数据到后端
             $.ajax({
                 type: 'POST',
-                url: '/handle_segment',  // 后端处理点击事件的路由
+                url: '/handle_autosegment',  // 后端处理点击事件的路由
                 data: JSON.stringify(sendData), // 将点位数据打包成JSON格式发送到后端
                 contentType: 'application/json;charset=UTF-8',
                 success: function(data) {
