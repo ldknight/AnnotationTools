@@ -1,0 +1,25 @@
+table{
+    margin-top: 20px;
+    width: 100%;
+    text-align: center;
+    border-spacing: 0;
+}
+.td01 {
+    font-family: 微软雅黑;
+    font-size: 20px;
+    border-bottom-color:lightgrey;
+    border-bottom-style: solid;
+    height: 40px;
+    padding-bottom: 15px;
+}
+.td02 {
+    height:30px;
+    padding-top: 15px;
+    font-family: 宋体;
+}
+.a02{
+    text-decoration: none;
+    color: blue;
+}
+.input02{
+}

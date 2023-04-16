@@ -1,0 +1,926 @@
+<html>
+
+<head>
+    <title>Anno Tools</title>
+    <script src="webstatic/js/vue.js" type="text/javascript"></script>
+    <script src="webstatic/js/axios.js" type="text/javascript"></script>
+    <script src="webstatic/js/fabric.js" type="text/javascript"></script>
+    <link rel="icon" href="webstatic/images/title_log.png" type="image/x-ico">
+    <!-- 引入样式 -->
+    <link rel="stylesheet" href="webstatic/css/elementui.css">
+    <!-- 引入组件库 -->
+    <script src="webstatic/js/elementui.js"></script>
+</head>
+
+<body>
+    <div class="home" id="home">
+        <el-card class="box-card">
+            <el-tabs tab-position="top" type="border-card" style="min-height: 580px;">
+                <el-tab-pane label="Project folders" class="list_class">
+                    <el-input placeholder="Album folder address" v-model="directoryUrl">
+                        <el-button slot="append" icon="el-icon-folder-add" @click="addNewProj()"></el-button>
+                    </el-input>
+                    <el-switch v-model="switch_value" active-text="增加并切换新项目" style="margin-top:10px">
+                    </el-switch>
+                    <el-empty :image-size="200" v-show="tableData.length == 0"></el-empty>
+                    <el-table v-show="tableData.length != 0" ref="singleTable" :data="tableData" highlight-current-row
+                        @current-change="handleCurrentChange" max-height="500px" style="width: 100%;">
+                        <el-table-column type="index" width="28" label="#">
+                        </el-table-column>
+                        <el-table-column property="name" label="名称" width="158">
+                        </el-table-column>
+                        <el-table-column property="date" label="上次编辑时间" width="110">
+                        </el-table-column>
+                        <el-table-column label="操作">
+                            <template slot-scope="scope">
+                                <el-popconfirm confirm-button-text='确定' cancel-button-text='不用了' icon="el-icon-info"
+                                    icon-color="red" :title="'确定删除`' + scope.row.name + '`吗'"
+                                    @confirm="handleProjItemDelete(scope.$index, scope.row)">
+                                    <el-button slot="reference" size="mini" type="danger">删除</el-button>
+                                </el-popconfirm>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+
+                </el-tab-pane>
+                <el-tab-pane label="TargetMasks" class="list_class">
+                    <el-empty :image-size="200" v-if="target_polygon_arr.length == 0"></el-empty>
+                    <!-- <div class="list_class_targetmasks" > -->
+                    <el-collapse accordion v-else v-model="collapse_activeName" @change="collapse_activeNamechange">
+                        <el-collapse-item v-for="(item, index) in target_polygon_arr" :key="index" :name="index + ''">
+                            <template slot="title">ID : {{ item.id }}
+                                <div>
+                                    {{ item.name }}
+                                </div>
+                            </template>
+                            <el-avatar shape="square" :size="100" fit="contain"
+                                src="https://fuss10.elemecdn.com/e/5d/4a731a90594a4af544c0c25941171jpeg.jpeg"></el-avatar>
+                        </el-collapse-item>
+                    </el-collapse>
+                </el-tab-pane>
+            </el-tabs>
+        </el-card>
+        <div class="center_container">
+            <div class="btnwrap">
+                <el-button type="primary" @click="undoDraw()" size="medium" icon="el-icon-back">撤销</el-button>
+                <el-button type="primary" @click="redoDraw()" size="medium">重做<i class="el-icon-right"></i></el-button>
+                <el-button type="primary" @click="clear()" size="medium" icon="el-icon-refresh">清除</el-button>
+            </div>
+            <el-card class="box-card-canvas">
+                <canvas id="c" width="800" height="600"></canvas>
+            </el-card>
+            <div class="zoomScal_class">
+                <el-tag>缩放：{{ zoomval }}%</el-tag>
+                <el-button type="primary" plain @click="recoverzoom()" size="small" icon="el-icon-refresh">
+                    恢复100%
+                </el-button>
+            </div>
+
+        </div>
+        <!-- <div class="right_condoing"> -->
+        <el-card class="box-card">
+            <el-tabs tab-position="top" type="border-card" style="min-height: 580px;">
+                <el-tab-pane label="Labels" class="list_class">
+                    <el-input class="input-new-tag label_item_class" v-if="inputVisible" v-model="inputValue"
+                        ref="saveTagInput" size="small" @keyup.enter.native="handleInputConfirm"
+                        @blur="handleInputConfirm" clearable>
+                    </el-input>
+                    <el-button v-else class="button-new-tag label_item_class" size="small" @click="showInput">+ New
+                        Tag</el-button>
+
+                    <el-empty :image-size="200" v-if="dynamicTags.length == 0"></el-empty>
+                    <el-checkbox-group v-model="target_label" :max="1" v-if="dynamicTags.length != 0"
+                        @change="checkbox_changeFun">
+                        <el-checkbox :label="index" v-for="(tag, index) in dynamicTags" :key="index"
+                            class="label_item_class label_item_class_radio">
+                            <el-input class="input-new-tag label_item_class" v-if="index == labeleditinputVisible"
+                                v-model="inputValue" ref="labeleditsaveTagInput" size="small"
+                                @keyup.enter.native="() => handlelabeleditInputConfirm(index)"
+                                @blur="() => handlelabeleditInputConfirm(index)" clearable>
+                            </el-input>
+                            <el-alert :title="tag" type="success" v-else @close="handleClose(tag)"
+                                style="display:inline-block;width: 160px;" @dblclick.native="dbalterlabel(index, tag)">
+                            </el-alert>
+                        </el-checkbox>
+                    </el-checkbox-group>
+                </el-tab-pane>
+                <el-tab-pane label="ImageList">
+                    <el-empty :image-size="200" v-if="imageList.length == 0"></el-empty>
+                    <el-row :gutter="12" v-else>
+                        <el-col :span="12" style="padding: 2px;" v-for="(item, index) in imageList" :key="index">
+                            <!-- <el-card shadow="hover" :body-style="{padding:'2px'}"> -->
+                            <el-image :src="item" @click="backgroundImageChangeFromImageList(index, item)"></el-image>
+                            <!-- </el-card> -->
+                        </el-col>
+                    </el-row>
+
+                </el-tab-pane>
+            </el-tabs>
+        </el-card>
+    </div>
+    <div class="bottom_area_wrap">
+        <div class="bottom_area_wrap_main">
+            <div class="bottom_area_wrap_main_copyright">
+                Annotation Tools &copy; einston
+            </div>
+        </div>
+    </div>
+    </div>
+</body>
+<script type="module">
+    new Vue({
+        el: '#home',
+        data() {
+            return {
+
+                collapse_activeName: '0',
+                directoryUrl: "",
+                //project folders => table data
+                tableData: [
+                    // {
+                    //   date: '2023-04-15',
+                    //   name: '/Users/liudun/Desktop'
+                    // }
+                ],
+                currentRow: null,
+                //右侧labels的操作
+                target_label: [],
+                // dynamicTags: ['标签一', '标签二', '标签三'],
+                dynamicTags: [],
+                inputVisible: false,
+                inputValue: '',
+
+                labeleditinputVisible: -1,
+
+                colors: '#000000',
+                width: 1,
+                strokeWidth: 1,
+                canvas: null,
+                drawingObject: null,
+                mouseFrom: {},
+                mouseTo: {},
+                currentType: 'rect',
+                idDrawing: true,
+                isSigleClicktimer: null,//判断是单击还是双击
+                imageList: [
+                    // "https://cube.elemecdn.com/6/94/4d3ea53c084bad6931a56d5158a48jpeg.jpeg",
+                    // "https://segment-anything.com/assets/gallery/AdobeStock_94274587_welsh_corgi_pembroke_CD.jpg",
+                ],
+                stateArr: [],
+                isRedoing: false,
+                // BackgroundImageUrl: 'https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/27d1b4e5f8824198b6d51a2b1c2d0d75~tplv-k3u1fbpfcp-zoom-crop-mark:400:400:400:400.awebp',
+                BackgroundImageUrl: 'https://cube.elemecdn.com/6/94/4d3ea53c084bad6931a56d5158a48jpeg.jpeg',
+                target_backImageInfo: {},
+                target_polygon_arr: [],
+                target_groups: [],
+                switch_value: true
+            };
+        },
+        computed: {
+            zoomval() {
+                if (this.canvas) {
+                    return parseInt(this.canvas.getZoom() * 100)
+                } else {
+                    return 100
+                }
+            },
+        },
+        watch: {
+            width: function () {
+                this.canvas.freeDrawingBrush.width = parseInt(this.width, 10);
+                this.strokeWidth = parseInt(this.width, 10);
+            }
+        },
+        methods: {
+            handle_currentToOriginPosition(x = 0, y = 0) {
+                var position_x = 0
+                var position_y = 0
+                if (x != 0) {
+                    position_x = (x - this.target_backImageInfo.left_position) / this.target_backImageInfo.target_scale
+                }
+                if (y != 0) {
+                    position_y = (y - this.target_backImageInfo.top_position) / this.target_backImageInfo.target_scale
+                }
+                return { origin_x: position_x, origin_y: position_y }
+            },
+            getTargetObjectField() {
+                var temp_target = []
+                var temp_obj = { boxes: [], points: [], item: [] }
+                var left_top = { origin_x: 0, origin_y: 0 }
+                var right_bottom = { origin_x: 0, origin_y: 0 }
+                var center_point = { origin_x: 0, origin_y: 0 }
+                // var temp_obj={boxes:[x1,y1,x2,y2],points:[[x,y,flag]]}
+                this.canvas.forEachObject(itemm => {
+                    temp_obj = { boxes: [], points: [], item: [] }
+                    if (itemm.type == "rect" && itemm.left != undefined) {//是矩形就作为一个组//查找与框相交的点
+                        // console.log(itemm);
+                        temp_obj.item.push(itemm)
+                        left_top = this.handle_currentToOriginPosition(itemm.left, itemm.top)
+                        right_bottom = this.handle_currentToOriginPosition(itemm.left + itemm.width, itemm.top + itemm.height)
+                        temp_obj.boxes = [left_top.origin_x, left_top.origin_y, right_bottom.origin_x, right_bottom.origin_y]
+                        //这些点都需要缩放
+                        this.canvas.forEachObject(itemm2 => {
+                            if (itemm2.type == "circle" && itemm2.isContainedWithinObject(itemm)) {//寻找包含于的点
+                                center_point = this.handle_currentToOriginPosition(itemm2.left, itemm2.top)
+                                temp_obj.item.push(itemm2)
+                                if (itemm2.fill == "red") {//负样本点 point:[x,y,0]
+                                    temp_obj.points.push([center_point.origin_x, center_point.origin_y, 0])
+                                } else {//正样本点 point:[x,y,1]
+                                    temp_obj.points.push([center_point.origin_x, center_point.origin_y, 1])
+                                }
+                            }
+                        })
+                        temp_target.push(temp_obj)
+                    } else if (itemm.type == "circle") {//没有被选中的点
+                        // console.log(itemm);
+                        var include_flag = false
+                        this.canvas.forEachObject(objxx => {
+                            if (objxx.type == "rect" && itemm.isContainedWithinObject(objxx)) {
+                                include_flag = true
+                            }
+                        })
+                        if (!include_flag) {//这个点没有任何矩形包裹着
+                            // temp_obj.points.push([])
+                            // temp_arr.push()
+                            var temp_flag_index = -1
+                            temp_target.forEach((obj3, indexxxxx) => {
+                                if (obj3.boxes.length == 0) {//这是外部的一个区域
+                                    temp_flag_index = indexxxxx
+                                }
+                            })
+                            if (temp_flag_index != -1) {
+                                temp_target[temp_flag_index].item.push(itemm)
+                                center_point = this.handle_currentToOriginPosition(itemm.left, itemm.top)
+                                if (itemm.fill == "red") {//负样本点 point:[x,y,0]
+                                    temp_target[temp_flag_index].points.push([center_point.origin_x, center_point.origin_y, 0])
+                                } else {//正样本点 point:[x,y,1]
+                                    temp_target[temp_flag_index].points.push([center_point.origin_x, center_point.origin_y, 1])
+                                }
+                            } else {
+                                temp_obj.item.push(itemm)
+                                center_point = this.handle_currentToOriginPosition(itemm.left, itemm.top)
+                                if (itemm.fill == "red") {//负样本点 point:[x,y,0]
+                                    temp_obj.points.push([center_point.origin_x, center_point.origin_y, 0])
+                                } else {//正样本点 point:[x,y,1]
+                                    temp_obj.points.push([center_point.origin_x, center_point.origin_y, 1])
+                                }
+                                temp_target.push(temp_obj)
+                            }
+                        }
+                    }
+                })
+                this.target_groups = temp_target
+            },
+            checkbox_changeFun(val) {
+                // console.log(val);
+                // console.log(this.collapse_activeName);
+                if (this.collapse_activeName) {
+                    if (!this.target_polygon_arr.length) {
+                    //   this.$message.error("还没有mask results！") 
+                      return
+                    }
+                    this.target_polygon_arr[this.collapse_activeName].id = val[0]
+                }
+            },
+            collapse_activeNamechange(val) {
+                console.log(val);
+            },
+            getmaskRes() {
+                //遍历所有polygon opacity==0.4
+                this.target_polygon_arr = []
+                var temp_obj = {}
+                var flag = false
+                this.canvas.forEachObject(itemx => {
+                    if (itemx.type == "polygon" && itemx.opacity == 0.4) {
+                        temp_obj = {
+                            id: -1,
+                            item: itemx,
+                            name: ''
+                        }
+                        flag = false
+                        this.target_polygon_arr.forEach(element => {
+                            if (element.item == itemx) {
+                                flag = true
+                            }
+                        })
+                        if (!flag) {
+                            this.target_polygon_arr.push(temp_obj)
+                        }
+                    }
+                })
+            },
+            get_targetCanvas_scale(img_width, img_height) {//img 的缩放比例
+                //保证 最长边小于canvas尺寸
+                var targert_scaleX = this.canvas.width / img_width
+                var targert_scaleY = this.canvas.height / img_height
+                var target_scale = img_height * targert_scaleX > this.canvas.height ? targert_scaleY : targert_scaleX
+                var left_position = 0
+                var top_position = 0
+                if (target_scale == targert_scaleX) {//横轴比较长
+                    left_position = 0
+                    top_position = this.canvas.height / 2 - img_height * target_scale / 2
+                } else {
+                    left_position = this.canvas.width / 2 - img_width * target_scale / 2
+                    top_position = 0
+                }
+                this.target_backImageInfo = { "left_position": left_position, "top_position": top_position, "target_scale": target_scale, "origin_width": img_width, "origin_height": img_height }
+                return this.target_backImageInfo
+            },
+            //增加新的项目
+            addNewProj() {
+                if (!this.directoryUrl) {
+                    this.$message.warning("地址不能为空")
+                    return
+                }
+                this.tableData.push({
+                    date: (new Date()).toLocaleDateString(),
+                    name: this.directoryUrl
+                })
+                this.directoryUrl = ''
+                this.setCurrent(this.tableData[0])//table选中
+                this.imageList = [
+                    "https://cube.elemecdn.com/6/94/4d3ea53c084bad6931a56d5158a48jpeg.jpeg",
+                    "https://segment-anything.com/assets/gallery/AdobeStock_94274587_welsh_corgi_pembroke_CD.jpg",
+                ]
+                //初始化页面
+                this.BackgroundImageUrl = this.imageList.length ? this.imageList[0] : ''
+                this.backgroundImageChangeFromImageList(0, this.BackgroundImageUrl)
+            },
+            handleProjItemDelete(index, row) {
+                console.log(index, row);
+                this.tableData.splice(index, 1)
+            },
+            dbalterlabel(index, name) {
+                this.labeleditinputVisible = index;
+                this.inputValue = name
+                this.$nextTick(() => {
+                    this.$refs.labeleditsaveTagInput.$refs.input.focus();
+                });
+            },
+            handlelabeleditInputConfirm(index) {
+                if (this.inputValue == this.dynamicTags[index]) {
+                    this.labeleditinputVisible = -1;
+                    this.inputValue = '';
+                    return
+                }
+                if (this.dynamicTags.indexOf(this.inputValue) >= 0) {
+                    this.$message.error("The name of the label is duplicate, please re-enter!")
+                    return
+                }
+                let inputValue = this.inputValue;
+                if (inputValue) {
+                    this.dynamicTags[index] = inputValue;
+                }
+                this.labeleditinputVisible = -1;
+                this.inputValue = '';
+            },
+            //左侧table的操作
+            setCurrent(row) {
+                this.$refs.singleTable.setCurrentRow(row);
+            },
+            handleCurrentChange(val) {
+                this.currentRow = val;
+            },
+            backgroundImageChangeFromImageList(index, imgurl = "https://cube.elemecdn.com/6/94/4d3ea53c084bad6931a56d5158a48jpeg.jpeg") {
+                this.BackgroundImageUrl = imgurl
+                console.log(index);
+                this.clear()
+                this.recoverzoom()
+            },
+            handleClose(tag) {
+                this.dynamicTags.splice(this.dynamicTags.indexOf(tag), 1);
+            },
+
+            showInput() {
+                this.inputVisible = true;
+                this.$nextTick(() => {
+                    this.$refs.saveTagInput.$refs.input.focus();
+                });
+            },
+            handleInputConfirm() {
+                if (this.dynamicTags.indexOf(this.inputValue) >= 0) {
+                    this.$message.error("The name of the label is duplicate, please re-enter!")
+                    return
+                }
+                let inputValue = this.inputValue;
+                if (inputValue) {
+                    this.dynamicTags.push(inputValue);
+                }
+                this.inputVisible = false;
+                this.inputValue = '';
+            },
+            recoverzoom() {
+                this.canvas.setZoom(1)
+                this.canvas.absolutePan({ x: 0, y: 0 })
+            },
+            initBackgroundImage() {
+                fabric.Image.fromURL(
+                    this.BackgroundImageUrl,
+                    (img) => {
+                        var targetCanvasVal = this.get_targetCanvas_scale(img.width, img.height)
+                        // 设置背景图
+                        this.canvas.setBackgroundImage(
+                            img,
+                            this.canvas.renderAll.bind(this.canvas),
+                            {
+                                left: targetCanvasVal.left_position,
+                                top: targetCanvasVal.top_position,
+                                originX: 'left',
+                                originY: 'top',
+                                scaleX: targetCanvasVal.target_scale, // 计算出图片要拉伸的宽度
+                                scaleY: targetCanvasVal.target_scale // 计算出图片要拉伸的高度
+                            }
+                        )
+                    }
+                )
+            },
+            initfreeDraw() {
+                if (this.canvas == null) {
+                    this.canvas = new fabric.Canvas("c", {
+                        fireRightClick: true,
+                        fireMiddleClick: true,
+                        stopContextMenu: true
+                    });
+                    this.canvas.isDrawingMode = 1;
+                    this.state = JSON.stringify(this.canvas);
+                }
+                this.canvas.freeDrawingBrush.color = this.colors;
+                this.canvas.freeDrawingBrush.width = this.width;
+                this.canvas.renderAll();
+            },
+            toggleDrawingObject(canvasObject) {
+                this.canvas.isDrawingMode = false;
+                this.canvas.selection = false;
+                // canvasObject.selectable = false;
+                canvasObject.selectable = true;
+                if (this.drawingObject) {
+                    this.canvas.remove(this.drawingObject);
+                }
+                this.canvas.add(canvasObject);
+                this.drawingObject = canvasObject;
+            },
+            initRect() {
+                let left = this.mouseFrom.x;
+                let top = this.mouseFrom.y;
+                let width = this.mouseTo.x - this.mouseFrom.x;
+                let height = this.mouseTo.y - this.mouseFrom.y;
+                let canvasObject = new fabric.Rect({
+                    left: left,
+                    top: top,
+                    width: width,
+                    height: height,
+                    stroke: this.colors,
+                    fill: "rgba(47, 234, 28, 0.1)",
+                    strokeWidth: this.strokeWidth,
+                    lockRotation: true
+                });
+                this.toggleDrawingObject(canvasObject);
+            },
+            judgeclickPointBeyondArea(point_x, point_y) {
+                let leftBound = this.target_backImageInfo.left_position;
+                let topBound = this.target_backImageInfo.top_position;
+                let bottomBound = topBound + this.target_backImageInfo.origin_height * this.target_backImageInfo.target_scale;
+                let rightBound = leftBound + this.target_backImageInfo.origin_width * this.target_backImageInfo.target_scale;
+                if (point_x < leftBound || point_x > rightBound || point_y < topBound || point_y > bottomBound) {
+                    return true
+                }
+                return false
+            },
+            initEvent() {
+                let eventType = ['rect'];
+                var that = this
+                this.canvas.on('mouse:down', function (options) {
+                    if (options.button == 3) {//排除右击
+                        that.idDrawing = false
+                        that.mouseFrom.x = options.absolutePointer.x;
+                        that.mouseFrom.y = options.absolutePointer.y;
+                        //拖拽画布
+                        if (options.e.altKey) {
+                            this.lastPosX = options.e.clientX
+                            this.lastPosY = options.e.clientY
+                            this.isDragging = true
+                        }
+                        return
+                    }
+                    //当点击区域超出图像渲染范围 应当禁止
+                    if (that.judgeclickPointBeyondArea(options.absolutePointer.x, options.absolutePointer.y)) {
+                        return
+                    }
+                    if (eventType.indexOf(that.currentType) != -1) {
+                        console.log('111');
+                        that.mouseFrom.x = options.absolutePointer.x;
+                        that.mouseFrom.y = options.absolutePointer.y;
+                        that.idDrawing = true;
+                    }
+                });
+                this.canvas.on('mouse:move', function (options) {
+                    //拖拽画布
+                    if (this.isDragging) {
+                        that.canvas.viewportTransform[4] += options.e.clientX - this.lastPosX
+                        that.canvas.viewportTransform[5] += options.e.clientY - this.lastPosY
+                        that.canvas.requestRenderAll()
+                        this.lastPosX = options.e.clientX
+                        this.lastPosY = options.e.clientY
+                    }
+                    if (that.idDrawing && eventType.indexOf(that.currentType) != -1) {
+                        that.mouseTo.x = options.absolutePointer.x;
+                        that.mouseTo.y = options.absolutePointer.y;
+                        //位置超出了界限 给他放回去 主要解决画框时候，落点超出的问题
+                        if (that.judgeclickPointBeyondArea(options.absolutePointer.x, options.absolutePointer.y)) {
+                            //输入点没超出、输出点超出了 把抬起点给限制在框框内
+                            let leftBound = that.target_backImageInfo.left_position;
+                            let topBound = that.target_backImageInfo.top_position;
+                            let bottomBound = topBound + that.target_backImageInfo.origin_height * that.target_backImageInfo.target_scale;
+                            let rightBound = leftBound + that.target_backImageInfo.origin_width * that.target_backImageInfo.target_scale;
+                            if (options.absolutePointer.x < leftBound) {
+                                that.mouseTo.x = leftBound
+                            }
+                            if (options.absolutePointer.x > rightBound) {
+                                that.mouseTo.x = rightBound
+                            }
+                            if (options.absolutePointer.y < topBound) {
+                                that.mouseTo.y = topBound
+                            }
+                            if (options.absolutePointer.y > bottomBound) {
+                                that.mouseTo.y = bottomBound
+                            }
+                        }
+                        switch (that.currentType) {
+                            case 'rect':
+                                that.initRect();
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                });
+                this.canvas.on("mouse:up", function (options) {
+                    if (options.button == 3) {//3right click   1left click
+                        that.mouseTo.x = options.absolutePointer.x;
+                        that.mouseTo.y = options.absolutePointer.y;
+                        if (this.isDragging && options.e.altKey) {
+                            that.canvas.setViewportTransform(that.canvas.viewportTransform)
+                            this.isDragging = false
+                        } else {
+                            if (that.judgeclickPointBeyondArea(options.absolutePointer.x, options.absolutePointer.y)) { return }
+                            that.makeCurveCircle(options.absolutePointer.x, options.absolutePointer.y, "red");
+                        }
+                        return
+                    }
+                    if (eventType.indexOf(that.currentType) != -1) {
+                        console.log('xxxx11');
+                        that.mouseTo.x = options.absolutePointer.x;
+                        that.mouseTo.y = options.absolutePointer.y;
+                        that.drawingObject = null;
+                        that.idDrawing = false;
+                    }
+                });
+
+                this.canvas.on('object:added', (options) => {
+                    if (this.isRedoing == false) {
+                        // console.log('xxxx333');
+                        this.stateArr = [];
+                        if (options.target.width < 5 && options.target.height < 5) {
+                            this.canvas.remove(options.target)
+                        }
+                    }
+                    // if (!options.target.top && options.target.type == "rect" && options.target.type == "circle") {
+                    //   this.getTargetObjectField()
+                    // }
+                });
+                this.canvas.on('object:modified', () => {
+                    // console.log(23213122);
+                    // this.getTargetObjectField()
+                    this.resetMove()
+                });
+                this.canvas.on('object:scaling', () => {
+                    this.resetMove()
+                    // console.log('xxxx666');
+                });
+                // this.canvas.on('object:removed', () => {
+                //   this.getTargetObjectField()
+                // });
+                this.canvas.on('mouse:wheel', opt => {
+                    // console.log(this)
+                    const delta = opt.e.deltaY // 滚轮，向上滚一下是 -100，向下滚一下是 100
+                    let zoom = this.canvas.getZoom() // 获取画布当前缩放值
+                    zoom *= 0.999 ** delta
+                    if (zoom > 20) zoom = 20
+                    if (zoom < 0.01) zoom = 0.01
+                    // 以鼠标所在位置为原点缩放
+                    this.canvas.zoomToPoint(
+                        { // 关键点
+                            x: opt.e.offsetX,
+                            y: opt.e.offsetY
+                        },
+                        zoom
+                    )
+                    opt.e.preventDefault()
+                    opt.e.stopPropagation()
+                })
+                this.canvas.on('object:moving', (options) => {
+                    //#############################
+                    // 将目标限制在一定范围内
+                    var movingBox = this.canvas.getActiveObject()
+                    let top = movingBox.top;
+                    let left = movingBox.left;
+
+                    let leftBound = this.target_backImageInfo.left_position;
+                    let topBound = this.target_backImageInfo.top_position;
+                    let bottomBound = topBound + this.target_backImageInfo.origin_height * this.target_backImageInfo.target_scale;
+                    let rightBound = leftBound + this.target_backImageInfo.origin_width * this.target_backImageInfo.target_scale;
+
+                    options.target.left = Math.min(Math.max(left, leftBound), rightBound - movingBox.width)
+                    options.target.top = Math.min(Math.max(top, topBound), bottomBound - movingBox.height)
+                    //#############################
+                    this.resetMove()
+                });
+            },
+            undoDraw() {
+                if (this.canvas._objects.length > 0) {
+                    this.stateArr.push(this.canvas._objects.pop());
+                    this.canvas.renderAll();
+                }
+            },
+            redoDraw() {
+                if (this.stateArr.length > 0) {
+                    this.isRedoing = true;
+                    this.canvas.add(this.stateArr.pop());
+                    this.canvas.renderAll();
+                }
+            },
+            resetMove() {
+                this.mouseFrom = {};
+                this.mouseTo = {};
+            },
+            clear() {
+                this.canvas.clear();
+                this.initBackgroundImage()
+
+                this.resetMove();
+                this.isRedoing = false;
+                this.stateArr = [];
+            },
+            //监听双击事件
+            listenclickontarget() {
+                var that = this
+                fabric.util.addListener(this.canvas.upperCanvasEl, 'click', function () {
+                    clearTimeout(that.isSigleClicktimer);
+                    that.isSigleClicktimer = setTimeout(function () {
+                        // console.log("单击");
+                        // console.log(that.mouseFrom);
+                        if (!that.canvas.getActiveObject()) {
+                            if (that.mouseTo.x == that.mouseFrom.x && that.mouseTo.y == that.mouseFrom.y) {//都是undefined
+                                console.log("单机了一个空位置");
+                                that.makeCurveCircle(that.mouseFrom.x, that.mouseFrom.y)
+                            }
+                        }
+                    }, 100);
+                });
+                fabric.util.addListener(this.canvas.upperCanvasEl, 'dblclick', function () {
+                    clearTimeout(that.isSigleClicktimer);
+                    console.log("双击了");
+                    if (that.canvas.getActiveObject()) {
+                        that.canvas.remove(that.canvas.getActiveObject())
+                    }
+                });
+            },
+            // 处理只有点击边框的时候才触发
+            handleReatContainChoose() {
+                //overrides the _checkTarget method to add check if point is close to the border
+                fabric.Canvas.prototype._checkTarget = function (pointer, obj, globalPointer) {
+                    if (obj &&
+                        obj.visible &&
+                        obj.evented &&
+                        obj.containsPoint(pointer)) {
+                        if ((this.perPixelTargetFind || obj.perPixelTargetFind) && !obj.isEditing) {
+                            var isTransparent = this.isTargetTransparent(obj, globalPointer.x, globalPointer.y);
+                            if (!isTransparent) {
+                                return true;
+                            }
+                        }
+                        else {
+                            var isInsideBorder = this.isInsideBorder(obj);
+                            if (!isInsideBorder) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+                var clickableMargin = 15
+                fabric.Canvas.prototype.isInsideBorder = function (target) {
+                    var pointerCoords = target.getLocalPointer();
+                    if (pointerCoords.x > clickableMargin &&
+                        pointerCoords.x < target.getScaledWidth() - clickableMargin &&
+                        pointerCoords.y > clickableMargin &&
+                        pointerCoords.y < target.getScaledHeight() - clickableMargin) {
+                        return true;
+                    }
+                }
+            },
+            makeCurveCircle(left, top, fill = "#fff") {
+                var c = new fabric.Circle({
+                    left: left - 13,
+                    top: top - 13,
+                    strokeWidth: 4,
+                    radius: 9,
+                    fill: fill,
+                    stroke: '#222'
+                });
+                c.hasBorders = c.hasControls = false;
+                this.canvas.add(c);
+            },
+            //创建polygon
+            create_polygon(target_arr = [{ x: 100, y: 100 }, { x: 100, y: 300 }, { x: 300, y: 300 }, { x: 300, y: 100 }]) {
+                var hexagon = new fabric.Polygon(
+                    target_arr,
+                    {
+                        stroke: "red",
+                        // left: this.target_backImageInfo.left_position,
+                        // top: this.target_backImageInfo.top_position,
+                        strokeWidth: 1,
+                        strokeLineJoin: "bevil",
+                        fill: "blue",
+                        perPixelTargetFind: true,//必须选中像素点
+                        selectable: false, //不可选中
+                        opacity: 0.001
+                    }
+                );
+                // Adding it to the canvas
+                this.canvas.add(hexagon);
+                hexagon.hoverCursor = 'default'
+            },
+            //按键恢复
+            // keyDownReview() {
+            //     // document.onkeydown = function (event) {
+            //     //     var e = event || window.event;
+            //     //     e.returnValue = true;
+            //     // }
+            // },
+            //按钮监听键盘
+            keyDown() {
+                //监听键盘按钮
+                var that = this
+                document.onkeydown = function (event) {
+                    var e = event || window.event;
+                    if (event.code == "Space") {
+                        that.getTargetObjectField()
+                        if (that.target_groups.length) {
+                            console.log("发起请求--.>接口");
+                        }
+                    }
+                    // if (e && e.preventDefault) {
+                    //     e.preventDefault();
+                    // } else {
+                    //     window.event.returnValue = false;
+                    // }
+                }
+            },
+        },
+        mounted() {
+            this.initfreeDraw();
+            this.initEvent();
+
+            this.listenclickontarget()
+
+            this.handleReatContainChoose()
+
+            this.initBackgroundImage()
+
+            // this.create_polygon()
+            // this.create_polygon([{ x: 350, y: 350 }, { x: 350, y: 490 }, { x: 490, y: 490 }, { x: 490, y: 350 }])
+
+        },
+        created() {
+            this.keyDown();
+        },
+        // beforeDestroy() {
+        //     this.keyDownReview()
+        // },
+    })
+</script>
+<style>
+    [v-cloak] {
+        display: none;
+    }
+
+    html,
+    body {
+        margin: 0;
+    }
+
+    .label_item_class {
+        margin-bottom: 5px;
+    }
+
+    .label_item_class_radio {
+        margin-top: 15px;
+        display: flex;
+        align-items: center;
+    }
+
+    .zoomScal_class {
+        width: 100%;
+        text-align: right;
+        margin-top: 2px;
+    }
+
+    .box-card-canvas {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 820px;
+        height: 600px;
+    }
+
+    .el-row {
+        margin-bottom: 10px;
+
+
+    }
+
+    .el-row:last-child {
+        margin-bottom: 0;
+    }
+
+    .list_class {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .list_class_targetmasks {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+    }
+
+    .el-tag+.el-tag {
+        margin-left: 10px;
+    }
+
+    .button-new-tag {
+        margin-left: 10px;
+        height: 32px;
+        line-height: 30px;
+        padding-top: 0;
+        padding-bottom: 0;
+    }
+
+    .input-new-tag {
+        width: 90px;
+        margin-left: 10px;
+        vertical-align: bottom;
+    }
+
+    .home {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100vw;
+
+
+
+    }
+
+    .box-card {
+        width: 300px;
+        max-height: 840px;
+    }
+
+    .center_container {
+        margin: 0 10px;
+    }
+
+    .btnwrap {
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .bottom_area_wrap {
+        background: #f5f5f6;
+        /* position: absolute; */
+        bottom: 0;
+        width: 100%;
+    }
+
+    .bottom_area_wrap_main {
+        width: 1200px;
+        margin: 0 auto;
+        padding-top: 11px;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        height: 20px;
+    }
+
+    .bottom_area_wrap_main_copyright {
+        flex: 1;
+        color: #9195a3;
+        font-size: 12px;
+    }
+</style>
+
+</html>

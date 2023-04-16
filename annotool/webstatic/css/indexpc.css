@@ -1,0 +1,7 @@
+@charset "UTF-8";
+.container_wrap{
+    width: 1200px;
+    min-height: 100vh;
+    margin: 0 auto;
+    background: #686868;
+}

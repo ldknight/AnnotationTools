@@ -157,7 +157,6 @@ class NpEncoder(json.JSONEncoder):
 @login_required
 def autosegment():
     data = request.get_json()
-    
     path=os.path.join(app.static_folder,data["imageSrc"][1:]).replace("/static/", "/", 1)
     image = cv2.imread(path)
     image = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)

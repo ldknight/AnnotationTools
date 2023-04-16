@@ -1,0 +1,53 @@
+/*div {*/
+/*    background: lightgray;*/
+/*    height: 70px;*/
+/*    font-size: 30px;*/
+/*    padding-top: 20px;*/
+/*    padding-left: 30px;*/
+/*}*/
+
+.button01 {
+    color: white;
+    font-size: 8px;
+    border: 0px;
+    background: dimgray;
+    /*height: 20px;*/
+    /*width: 50px;*/
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.button02 {
+    color: dimgray;
+    font-size: 20px;
+    border: 0px;
+    background: white;
+    height: 40px;
+    width: 100px;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.button03 {
+    font-size: 16px;
+    width: 78px;
+    height: 40px;
+    float: right;
+    background: black;
+    color: white;
+    text-align: center;
+    line-height: 40px;
+    border-radius: 10px;
+    cursor: pointer;
+    margin-right: 20px;
+}
+
+.input01 {
+    float: right;
+    margin-right: 10px;
+    width: 260px;
+    border: 1px solid #e2e2e2;
+    height: 40px;
+    line-height: 40px;
+    padding: 0 0 0 5px;
+}
