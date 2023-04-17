@@ -2,7 +2,7 @@
 // let axios = require("./axios.js")
 //线下地址
 //  const root = "http://localhost:8081/textRetrievalProj_war_exploded/";
-const root = "http://localhost:8087/textRetrievalProj_war_exploded/";
+const root = "http://127.0.0.1:5000/"
 //const root = "http://localhost:8080/textRetrievalProj_war_exploded/";
 //线上地址
 // var root = "http://localhost:8087/textRetrievalProj_war_exploded/";
@@ -32,9 +32,12 @@ instance.interceptors.response.use(
     }
 )
 
-export function axiosGet(url,params){
-    return instance.get(url,{params});
+function axiosGet(url,params){
+    return instance.get(root+url,{params});
 }
-export function axiosPost(url,data){
-    return instance.post(url,Qs.stringify(data));
+function axiosPost(url,data){
+    return instance.post(root+url,Qs.stringify(data));
+}
+function getbaseurl(){
+    return root;
 }

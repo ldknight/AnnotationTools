@@ -1,8 +1,11 @@
 <html>
+
 <head>
     <title>Anno Tools</title>
     <script src="webstatic/js/vue.js" type="text/javascript"></script>
     <script src="webstatic/js/axios.js" type="text/javascript"></script>
+    <script src="webstatic/js/wrapAxios.js" type="text/javascript"></script>
+    <script src="webstatic/js/qs.js" type="text/javascript"></script>
     <script src="webstatic/js/fabric.js" type="text/javascript"></script>
     <link rel="icon" href="webstatic/images/title_log.png" type="image/x-ico">
     <!-- 引入样式 -->
@@ -10,6 +13,7 @@
     <!-- 引入组件库 -->
     <script src="webstatic/js/elementui.js"></script>
 </head>
+
 <body>
     <div class="home" id="home">
         <el-card class="box-card">
@@ -96,18 +100,20 @@
                                 @keyup.enter.native="() => handlelabeleditInputConfirm(index)"
                                 @blur="() => handlelabeleditInputConfirm(index)" clearable>
                             </el-input>
-                            <el-alert :title="tag" type="success" v-else @close="handleClose(tag)"
-                                style="display:inline-block;width: 160px;" @dblclick.native="dbalterlabel(index, tag)">
+                            <el-alert :title="tag.name" type="success" v-else @close="handleClose(tag.id,tag.name)"
+                                style="display:inline-block;width: 160px;"
+                                @dblclick.native="dbalterlabel(index, tag.name)">
                             </el-alert>
                         </el-checkbox>
                     </el-checkbox-group>
                 </el-tab-pane>
                 <el-tab-pane label="ImageList">
-                    <el-empty :image-size="200" v-if="imageList.length == 0"></el-empty>
+                    <el-empty :image-size="200" v-if="imageList.data.length == 0"></el-empty>
                     <el-row :gutter="12" v-else>
-                        <el-col :span="12" style="padding: 2px;" v-for="(item, index) in imageList" :key="index">
+                        <el-col :span="12" style="padding: 2px;" v-for="(item, index) in imageList.data" :key="index">
                             <!-- <el-card shadow="hover" :body-style="{padding:'2px'}"> -->
-                            <el-image :src="item" @click="backgroundImageChangeFromImageList(index, item)"></el-image>
+                            <el-image :src="basehtttpurl+item.img_url"
+                                @click="backgroundImageChangeFromImageList(index, basehtttpurl+item.img_url)"></el-image>
                             <!-- </el-card> -->
                         </el-col>
                     </el-row>
@@ -159,10 +165,16 @@
                 currentType: 'rect',
                 idDrawing: true,
                 isSigleClicktimer: null,//判断是单击还是双击
-                imageList: [
-                    // "https://cube.elemecdn.com/6/94/4d3ea53c084bad6931a56d5158a48jpeg.jpeg",
-                    // "https://segment-anything.com/assets/gallery/AdobeStock_94274587_welsh_corgi_pembroke_CD.jpg",
-                ],
+                imageList: {
+                    data: [],
+                    page_data: {
+                        current_page: 1,
+                        pageNo: 1,
+                        page_size: 50,
+                        total: 0,
+                        total_page: 1
+                    }
+                },
                 stateArr: [],
                 isRedoing: false,
                 // BackgroundImageUrl: 'https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/27d1b4e5f8824198b6d51a2b1c2d0d75~tplv-k3u1fbpfcp-zoom-crop-mark:400:400:400:400.awebp',
@@ -173,6 +185,8 @@
                 switch_value: true
             };
         },
+        // "https://cube.elemecdn.com/6/94/4d3ea53c084bad6931a56d5158a48jpeg.jpeg",
+        // "https://segment-anything.com/assets/gallery/AdobeStock_94274587_welsh_corgi_pembroke_CD.jpg",
         computed: {
             zoomval() {
                 if (this.canvas) {
@@ -181,6 +195,9 @@
                     return 100
                 }
             },
+            basehtttpurl() {
+                return getbaseurl()
+            }
         },
         watch: {
             width: function () {
@@ -189,6 +206,45 @@
             }
         },
         methods: {
+            getdatefilter(temp_time) {
+                var temp_time2 = new Date(temp_time * 1000)
+                return (temp_time2.getFullYear()) + "-"
+                    + (temp_time2.getMonth() + 1) + "-"
+                    + (temp_time2.getDate()) + " "
+                    + (temp_time2.getHours()) + ":"
+                    + (temp_time2.getMinutes())
+            },
+            initProj() {
+                axiosGet("project/getProjectList", {})
+                    .then(res => {
+                        if (res.data.success) {//处理成功
+                            var imagelist = res.data.data.imagelist
+                            this.dynamicTags = res.data.data.label_list
+                            var project_list = res.data.data.project_list
+
+                            var segment_list = res.data.data.segment_list
+
+                            project_list.forEach(itemxxx => {
+                                itemxxx.date = this.getdatefilter(itemxxx.create_time)
+                                itemxxx.name = itemxxx.proj_url_ago
+                                itemxxx.proj_id = itemxxx.id
+                            })
+                            this.tableData = project_list
+
+                            this.imageList = res.data.data.imagelist
+                            this.setCurrent(this.tableData[0])//table选中
+                            //初始化页面
+                            this.BackgroundImageUrl = this.imageList.data.length ? this.basehtttpurl + this.imageList.data[0].img_url : ''
+                            if (this.BackgroundImageUrl) {
+                                this.backgroundImageChangeFromImageList(0, this.BackgroundImageUrl)
+                            } else {
+                                this.$message.warning("No valid images available！")
+                            }
+
+
+                        }
+                    })
+            },
             handle_currentToOriginPosition(x = 0, y = 0) {
                 var position_x = 0
                 var position_y = 0
@@ -273,8 +329,8 @@
                 // console.log(this.collapse_activeName);
                 if (this.collapse_activeName) {
                     if (!this.target_polygon_arr.length) {
-                    //   this.$message.error("还没有mask results！") 
-                      return
+                        //   this.$message.error("还没有mask results！") 
+                        return
                     }
                     this.target_polygon_arr[this.collapse_activeName].id = val[0]
                 }
@@ -329,19 +385,32 @@
                     this.$message.warning("地址不能为空")
                     return
                 }
-                this.tableData.push({
-                    date: (new Date()).toLocaleDateString(),
-                    name: this.directoryUrl
-                })
-                this.directoryUrl = ''
-                this.setCurrent(this.tableData[0])//table选中
-                this.imageList = [
-                    "https://cube.elemecdn.com/6/94/4d3ea53c084bad6931a56d5158a48jpeg.jpeg",
-                    "https://segment-anything.com/assets/gallery/AdobeStock_94274587_welsh_corgi_pembroke_CD.jpg",
-                ]
-                //初始化页面
-                this.BackgroundImageUrl = this.imageList.length ? this.imageList[0] : ''
-                this.backgroundImageChangeFromImageList(0, this.BackgroundImageUrl)
+                // /Users/liudun/Desktop/anno_tools/AnnotationTools/demo_imgs
+                axiosPost("project/addProject",
+                    {
+                        proj_url: this.directoryUrl
+                    })
+                    .then(res => {
+                        if (res.data.success) {//处理成功
+                            this.$message.success("`" + proj_url + "`添加成功！")
+                            this.directoryUrl = ""
+                        }
+                        this.tableData.push({
+                            date: (new Date()).toLocaleDateString(),
+                            name: this.directoryUrl,
+                            proj_id: res.data.data.proj_id
+                        })
+                        this.imageList = res.data.data.imagelist
+                        this.setCurrent(this.tableData[0])//table选中
+                        //初始化页面
+                        this.BackgroundImageUrl = this.imageList.data.length ? this.basehtttpurl + this.imageList.data[0].img_url : ''
+                        if (this.BackgroundImageUrl) {
+                            this.backgroundImageChangeFromImageList(0, this.BackgroundImageUrl)
+                        } else {
+                            this.$message.warning("No valid images available！")
+                        }
+                    })
+
             },
             handleProjItemDelete(index, row) {
                 console.log(index, row);
@@ -355,6 +424,7 @@
                 });
             },
             handlelabeleditInputConfirm(index) {
+                // 修改label信息  需要访问后端
                 if (this.inputValue == this.dynamicTags[index]) {
                     this.labeleditinputVisible = -1;
                     this.inputValue = '';
@@ -380,12 +450,12 @@
             },
             backgroundImageChangeFromImageList(index, imgurl = "https://cube.elemecdn.com/6/94/4d3ea53c084bad6931a56d5158a48jpeg.jpeg") {
                 this.BackgroundImageUrl = imgurl
-                console.log(index);
                 this.clear()
                 this.recoverzoom()
             },
-            handleClose(tag) {
-                this.dynamicTags.splice(this.dynamicTags.indexOf(tag), 1);
+            handleClose(id, tag) {
+                // 删除label
+                // this.dynamicTags.splice(this.dynamicTags.indexOf(tag), 1);
             },
 
             showInput() {
@@ -782,7 +852,9 @@
 
             this.handleReatContainChoose()
 
-            this.initBackgroundImage()
+            this.initProj()
+
+            // this.initBackgroundImage()
 
             // this.create_polygon()
             // this.create_polygon([{ x: 350, y: 350 }, { x: 350, y: 490 }, { x: 490, y: 490 }, { x: 490, y: 350 }])
