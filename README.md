@@ -12,3 +12,9 @@ AnnotationTools
 
 **/annotation**       
 展示图片
+
+**前端**       
+webstatic目录
+
+**后端**       
+数据库 sqlite
