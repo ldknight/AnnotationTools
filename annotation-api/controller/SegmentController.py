@@ -6,14 +6,14 @@ from utils.MyResultRole import MyResultRole
 segment_api = Blueprint('segment_api', __name__)
 
 # 查询label列表
-@segment_api.route('/label/getSegmentList', methods=['POST', 'GET'])
+@segment_api.route('/segment/getSegmentList', methods=['POST', 'GET'])
 def getSegmentList(img_id=0):
     img_id = HandleData.request_parse_equal(img_id, locals())
     res = SegmentServer.getAllSegmentList(SegmentServer(), img_id)
     return MyResultRole.ResSuccess(data=res)
 
 # 删除label
-@segment_api.route('/label/deleteSegment', methods=['POST', 'GET'])
+@segment_api.route('/segment/deleteSegment', methods=['POST', 'GET'])
 def deleteSegment(img_id=0, segment_id=0):
     img_id = HandleData.request_parse_equal(img_id, locals())
     segment_id = HandleData.request_parse_equal(segment_id, locals())

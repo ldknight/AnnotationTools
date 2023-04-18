@@ -28,8 +28,9 @@ def deleteLabel(label_id=0,proj_id=0):
 
 
 @label_api.route('/label/editLabel', methods=['POST', 'GET'])
-def editLabel():
-    res = LabelServer.editLabel(LabelServer())
+def editLabel(proj_id=0):
+    proj_id = HandleData.request_parse_equal(proj_id, locals())
+    res = LabelServer.editLabel(LabelServer(),proj_id=proj_id)
     return MyResultRole.ResSuccess(data=res)
 
 

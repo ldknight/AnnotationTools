@@ -46,16 +46,16 @@
 
                 </el-tab-pane>
                 <el-tab-pane label="TargetMasks" class="list_class">
-                    <!-- <el-empty :image-size="200" v-if="target_polygon_arr.length == 0"></el-empty> -->
+                    <el-empty :image-size="200" v-if="target_polygon_arr.length == 0"></el-empty>
                     <!-- <div class="list_class_targetmasks" > -->
                     <el-upload class="upload-demo" action="#" :file-list="target_polygon_arr" list-type="picture"
-                        :auto-upload="false">
+                        :auto-upload="false" v-else>
                         <!-- <el-button size="small" type="primary" style="display: none;">点击上传</el-button>
                         <div slot="tip" class="el-upload__tip" style="display: none;">只能上传jpg/png文件，且不超过500kb</div> -->
                         <div slot="file" slot-scope="{file}" class="choose_mask_class">
-                            <img :src="file.url" class="el-upload-list__item-thumbnail" alt>
-                            <a class="el-upload-list__item-name">测试后 </a>
-                            <i class="el-icon-close"></i>
+                            <img :src="target_backImageInfo.BackgroundImageUrl" class="el-upload-list__item-thumbnail" alt>
+                            <a class="el-upload-list__item-name">{{file.label_id?"label_id : "+file.label_id:""}}</a>
+                            <i class="el-icon-close" @click="del_segment(file)"></i>
                         </div>
                     </el-upload>
                 </el-tab-pane>
@@ -65,7 +65,8 @@
             <div class="btnwrap">
                 <el-button type="primary" @click="undoDraw()" size="medium" icon="el-icon-back">撤销</el-button>
                 <el-button type="primary" @click="redoDraw()" size="medium">重做<i class="el-icon-right"></i></el-button>
-                <el-button type="primary" @click="clear()" size="medium" icon="el-icon-refresh">清除</el-button>
+                <el-button type="primary" @click="clear()" size="medium" icon="el-icon-refresh">清空画布</el-button>
+                <el-button type="primary" @click="download_annotation()" size="medium" icon="el-icon-download">下载annotation.txt</el-button>
             </div>
             <el-card class="box-card-canvas">
                 <canvas id="c" width="800" height="600"></canvas>
@@ -108,8 +109,6 @@
                 </el-tab-pane>
                 <el-tab-pane label="ImageList">
                     <el-empty :image-size="200" v-if="imageList.data.length == 0"></el-empty>
-
-
                     <el-row :gutter="12" v-else>
                         <el-col :span="12" style="padding: 2px;" v-for="(item, index) in imageList.data" :key="index">
                             <!-- <el-card shadow="hover" :body-style="{padding:'2px'}"> -->
@@ -209,6 +208,21 @@
             }
         },
         methods: {
+            download_annotation(){
+                // 下载文件
+                console.log("download file"); 
+            },
+            del_segment(target_file) {
+                axiosPost("segment/deleteSegment",
+                    {
+                        segment_id: target_file.id,
+                        img_id: target_file.img_id
+                    })
+                    .then(res => {
+                        this.target_polygon_arr=res.data.data
+                        this.$message.success("delete segment success!")
+                    })
+            },
             getdatefilter(temp_time) {
                 var temp_time2 = new Date(temp_time * 1000)
                 return (temp_time2.getFullYear()) + "-"
@@ -225,7 +239,7 @@
                             this.dynamicTags = res.data.data.label_list
                             var project_list = res.data.data.project_list
 
-                            var segment_list = res.data.data.segment_list
+                            this.target_polygon_arr = res.data.data.segment_list
 
                             project_list.forEach(itemxxx => {
                                 itemxxx.date = this.getdatefilter(itemxxx.create_time)
@@ -244,8 +258,6 @@
                             } else {
                                 this.$message.warning("No valid images available！")
                             }
-
-
                         }
                     })
             },
@@ -399,20 +411,34 @@
                 });
             },
             handlelabeleditInputConfirm(index) {
-                // 修改label信息  需要访问后端
-                if (this.inputValue == this.dynamicTags[index]) {
+                //不能为空
+                if (!this.inputValue.trim().length) {
                     this.labeleditinputVisible = -1;
                     this.inputValue = '';
                     return
                 }
-                if (this.dynamicTags.indexOf(this.inputValue) >= 0) {
+                var hasExistFlagindex = this.judge_itemval_obj(this.dynamicTags, "name", this.inputValue)
+                if (hasExistFlagindex >= 0) {
                     this.$message.error("The name of the label is duplicate, please re-enter!")
+                    this.labeleditinputVisible = -1;
+                    this.inputValue = '';
                     return
                 }
-                let inputValue = this.inputValue;
-                if (inputValue) {
-                    this.dynamicTags[index] = inputValue;
-                }
+                //添加记录
+                axiosPost("label/editLabel",
+                    {
+                        id: this.dynamicTags[index].id,
+                        name: this.inputValue,
+                        proj_id: this.currentRow.id
+                    })
+                    .then(res => {
+                        this.dynamicTags = []
+                        this.dynamicTags = res.data.data
+
+                        if (res.data.success) {//处理成功
+                            this.$message.success("`" + this.dynamicTags[index].name + "`修改成功！")
+                        }
+                    })
                 this.labeleditinputVisible = -1;
                 this.inputValue = '';
             },
@@ -438,7 +464,7 @@
                             if (res.data.success) {//处理成功
                                 this.dynamicTags = res.data.data.label_list
 
-                                var segment_list = res.data.data.segment_list
+                                this.target_polygon_arr = res.data.data.segment_list
 
                                 this.imageList = res.data.data.imagelist
                                 //初始化页面
@@ -463,12 +489,40 @@
                 this.target_backImageInfo.BackgroundImageUrl = imgurl
                 this.target_backImageInfo.img_id = id
 
-                this.clear()
+                this.canvas.clear();
+                this.initBackgroundImage()
+                //获取segment信息
+                axiosGet("segment/getSegmentList", {
+                    img_id: id
+                })
+                    .then(res => {
+                        this.target_polygon_arr = []
+                        this.target_polygon_arr = res.data.data
+                    })
+
+
+                this.resetMove();
+                this.isRedoing = false;
+                this.stateArr = [];
                 this.recoverzoom()
             },
             handleClose(id, tag) {
                 // 删除label
-                // this.dynamicTags.splice(this.dynamicTags.indexOf(tag), 1);
+                axiosPost("label/deleteLabel",
+                    {
+                        label_id: id,
+                        proj_id: this.currentRow.id
+                    })
+                    .then(res => {
+                        if (res.data.success) {//处理成功
+                            this.$message.success("`" + tag + "`删除成功！")
+                        }
+                        this.dynamicTags = []
+                        this.dynamicTags = res.data.data
+                    })
+                    .catch(err => {
+                        this.$message.error("未知错误！")
+                    })
             },
 
             showInput() {
@@ -477,17 +531,49 @@
                     this.$refs.saveTagInput.$refs.input.focus();
                 });
             },
+            // obj=[{itemname:itemvalue}]
+            judge_itemval_obj(obj, itemname = "name", itemvalue) {
+                var index_flag = -1
+                obj.forEach((itemmmm, indexxxxx) => {
+                    if (itemmmm[itemname] == itemvalue) {
+                        index_flag = indexxxxx
+                    }
+                })
+                return index_flag
+            },
             handleInputConfirm() {
-                if (this.dynamicTags.indexOf(this.inputValue) >= 0) {
+                if (!this.inputValue.trim().length) {
+                    // this.$message.error("label不能为空！")
+                    this.inputVisible = false;
+                    this.inputValue = '';
+                    return
+                }
+                var hasExistFlagindex = this.judge_itemval_obj(this.dynamicTags, "name", this.inputValue)
+                if (hasExistFlagindex >= 0) {
                     this.$message.error("The name of the label is duplicate, please re-enter!")
                     return
                 }
-                let inputValue = this.inputValue;
-                if (inputValue) {
-                    this.dynamicTags.push(inputValue);
-                }
-                this.inputVisible = false;
-                this.inputValue = '';
+                //添加记录
+                axiosPost("label/addLabel",
+                    {
+                        name: this.inputValue,
+                        proj_id: this.currentRow.id
+                    })
+                    .then(res => {
+                        if (res.data.success) {//处理成功
+                            this.$message.success("`" + this.inputValue + "`添加成功！")
+                        }
+                        console.log(res);
+                        this.dynamicTags = res.data.data
+                        this.inputVisible = false;
+                        this.inputValue = '';
+                    })
+                    .catch(err => {
+                        this.$message.error("未知错误！")
+                        this.inputVisible = false;
+                        this.inputValue = '';
+                    })
+
             },
             recoverzoom() {
                 this.canvas.setZoom(1)
@@ -744,7 +830,7 @@
                             this.$message.error("清空失败！")
                             return
                         }
-                        // this.$message.success("画布清空成功！")
+                        this.target_polygon_arr=res.data.data
                         this.canvas.clear();
 
                         this.initBackgroundImage()
@@ -1016,6 +1102,7 @@
         color: #9195a3;
         font-size: 12px;
     }
+
     /* .choose_mask_class:focus-within .el-upload-list__item {
         margin-bottom: 100px;
     } */

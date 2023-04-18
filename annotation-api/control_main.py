@@ -6,9 +6,13 @@ from flask_cors import CORS, cross_origin
 
 from controller.ProjectController import  project_api
 from controller.ImagesController import  image_api
+from controller.LabelController import  label_api
+from controller.SegmentController import  segment_api
 
 app.register_blueprint(project_api)
 app.register_blueprint(image_api)
+app.register_blueprint(label_api)
+app.register_blueprint(segment_api)
 
 
 #处理跨域

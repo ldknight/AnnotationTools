@@ -22,7 +22,7 @@ def getImageList(pageNo=1, page_size=20, proj_id=0):
 def clear_img_segment(img_id=0):
     img_id = HandleData.request_parse_equal(img_id, locals())
     res = PublicServer.clear_img_segment(PublicServer(),img_id=img_id)
-    return MyResultRole.ResSuccess(msg="清除成功！")
+    return MyResultRole.ResSuccess(data=res)
 
 
 

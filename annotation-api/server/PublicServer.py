@@ -28,7 +28,8 @@ class PublicServer:
     def clear_img_segment(self,img_id=0):
         #删除图片对应的segment
         obj = db_mysql_detail()
-        return obj.deleteItem_condition(where_condition=" img_id="+str(img_id)+" ", tablename='segment')
+        obj.deleteItem_condition(where_condition=" img_id="+str(img_id)+" ", tablename='segment')
+        return SegmentServer.getAllSegmentList(SegmentServer(),img_id=img_id)
     
 
 
