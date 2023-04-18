@@ -1,10 +1,11 @@
 from os.path import dirname, abspath
-from database.db_mysql import db_mysql_detail
+from database.db_mysql import db_mysql_detail,sqlmanger
 from server.LabelServer import LabelServer
 from utils.HandleData import HandleData
 from utils.HandleZip import HandleZip
 from utils.MyResultRole import MyResultRole
 import pandas as pd
+from config import db_name
 
 '''
     处理images表   增删改查
@@ -37,6 +38,23 @@ class ImagesServer():
         startone = (pageNo - 1) * page_size
         result_list = obj.get_tweet_by_page(startone, page_size, tablename='images', where_str=where_str)
         return {'data': result_list, 'page_data': page_data}
+    
+    @staticmethod
+    def getImagePath(proj_id=None, imgid=None):
+        conn=sqlmanger().conn
+        if conn !=None:
+            query = "SELECT * FROM images WHERE proj_id == ? AND id == ?"
+            cursor=conn.cursor()
+            params = (proj_id, imgid)
+            cursor.execute(query, params)
+            result = cursor.fetchall()
+            for row in result:
+                print(row)
+            cursor.close()
+            conn.close()
+            return {"imgpath":result}
+        return None
+        
 
 
 

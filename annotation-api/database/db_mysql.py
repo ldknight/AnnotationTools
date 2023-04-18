@@ -1,5 +1,6 @@
 import os
 import sys
+from config import db_name
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(BASE_DIR)
 #接后续代码
@@ -8,8 +9,24 @@ import time
 from utils.HandleData import HandleData
 import sqlite3
 
+class sqlmanger():
+    def __init__(self) -> None:
+        self.conn = self.connect()
+
+    def connect(self):
+        try:
+            return sqlite3.connect(db_name)
+        except:
+            return None
+    
+
+    
+   
+
+
+
 class db_mysql_detail():
-    def __init__(self, name='test.db'):
+    def __init__(self, name='test_copy.sqlite'):
         self.__name = name
         self.__conn = self.build_conn(name)
         self.__cursor = self.__conn.cursor()
@@ -17,6 +34,7 @@ class db_mysql_detail():
     @property
     def conn(self):
         return self.__conn
+    
     def build_conn(self, name):
         try:
             con = sqlite3.connect(name)
@@ -67,17 +85,15 @@ class db_mysql_detail():
         sql = sql + fields + ") values(" + values + ")"
         print(sql)
         res=0
-        try:
-            # 执行SQL语句
-            self.__cursor.execute(sql)
-            # 提交到数据库执行
-            self.__conn.commit()
-            # 获取自增id
-            res = self.__cursor.lastrowid
-            # res = self.__cursor.fetchone()
-        except:
-            # 发生错误时回滚
-            self.__conn.rollback()
+        
+        # 执行SQL语句
+        self.__cursor.execute(sql)
+        # 提交到数据库执行
+        self.__conn.commit()
+        # 获取自增id
+        res = self.__cursor.lastrowid
+        # res = self.__cursor.fetchone()
+
         return res
 
     '''

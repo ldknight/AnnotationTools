@@ -1,5 +1,5 @@
 from flask import Flask
-
+import os
 app = Flask(__name__)
 
 from flask_cors import CORS, cross_origin
@@ -11,6 +11,7 @@ from controller.SegmentController import  segment_api
 
 app.register_blueprint(project_api)
 app.register_blueprint(image_api)
+app.folder = os.path.abspath(os.path.dirname(__file__))
 app.register_blueprint(label_api)
 app.register_blueprint(segment_api)
 
