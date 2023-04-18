@@ -9,7 +9,6 @@ import uuid
 
 from werkzeug.utils import secure_filename
 
-from aiohttp.web_response import json_response
 
 from server.SoundServer import SoundServer
 from server.UserServer import UserServer

@@ -1,5 +1,5 @@
 from flask import Flask
-
+import os
 app = Flask(__name__)
 
 from flask_cors import CORS, cross_origin
@@ -9,7 +9,7 @@ from controller.ImagesController import  image_api
 
 app.register_blueprint(project_api)
 app.register_blueprint(image_api)
-
+app.folder = os.path.abspath(os.path.dirname(__file__))
 
 #处理跨域
 CORS(app,supports_credentials=True)

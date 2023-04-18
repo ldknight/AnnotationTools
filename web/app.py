@@ -20,7 +20,7 @@ sys.path.append("..")
 sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
 sam.to(device=device)
 predictor = SamPredictor(sam)
-mask_generator = SamAutomaticMaskGenerator(sam)
+
 
 app = Flask(__name__)
 ALLOWED_EXTENSIONS = {'zip'}
@@ -160,7 +160,7 @@ def autosegment():
     path=os.path.join(app.static_folder,data["imageSrc"][1:]).replace("/static/", "/", 1)
     image = cv2.imread(path)
     image = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
-    path=os.path.join(app.static_folder,data["imageSrc"][1:]).replace("/static/", "/", 1)
+    mask_generator = SamAutomaticMaskGenerator(sam)
     masks = mask_generator.generate(image)
     masks=ndarray_to_list(masks)
     senddata={

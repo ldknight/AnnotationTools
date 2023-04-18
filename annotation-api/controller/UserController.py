@@ -1,8 +1,6 @@
 import requests
 import uuid
 
-from aiohttp.web_response import json_response
-
 from server.UserServer import UserServer
 from flask import Blueprint,request
 from utils.HandleData import HandleData

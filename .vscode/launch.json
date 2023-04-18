@@ -12,7 +12,7 @@
             "request": "launch",
             "module": "flask",
             "env": {
-                "FLASK_APP": "web/app.py",
+                "FLASK_APP": "annotation-api/control_main.py",
                 "FLASK_DEBUG": "1"
             },
             "args": [
