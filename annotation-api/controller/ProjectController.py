@@ -22,5 +22,21 @@ def getProjectList():
 
 
 
+@project_api.route('/project/deleteProject', methods=['POST', 'GET'])
+# 删除label
+def deleteProject(proj_id=0):
+    proj_id = HandleData.request_parse_equal(proj_id, locals())
+    res_flag = ProjectServer.del_proj(ProjectServer(), proj_id)
+    if res_flag:
+        return MyResultRole.ResSuccess(msg='删除成功！')
+    else:
+        return MyResultRole.ResError(msg="删除失败")
+
+@project_api.route('/project/getProjectInfo', methods=['POST', 'GET'])
+# 添加Project
+def getProjectInfo(proj_id=0):
+    proj_id = HandleData.request_parse_equal(proj_id, locals())
+    res_ = ProjectServer.getProjectInfo(ProjectServer(),proj_id)
+    return MyResultRole.ResSuccess(data=res_)
 
 
