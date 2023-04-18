@@ -22,9 +22,7 @@ from server.SegmentServer import SegmentServer
     处理project表   增删改查
 """
 
-
 class ProjectServer:
-
     def addProject(self, proj_url):
         # 数据库查询 不能已存在
         obj = db_mysql_detail()
@@ -102,18 +100,45 @@ class ProjectServer:
                     SegmentServer(),img_id=imagelist["data"][0]['id']
                 )
         return {"imagelist": imagelist, "project_list": target_val,"label_list":label_list,"segment_list":segment_list}
-
+    
+    def getProjectInfo(self,proj_id=0):
+        # 数据总量
+        obj = db_mysql_detail()
+        where_str = " delete_time is null and id="+str(proj_id)+" "
+        target_val = obj.selectTopone(table='project', where=where_str)
+        imagelist=[]
+        label_list=[]
+        segment_list=[]
+        if(target_val and len(target_val)):
+            # 分页返回images列表
+            imagelist = ImagesServer.limit_offset_query(
+                ImagesServer(), pageNo=1, page_size=50, proj_id=target_val[0]['id']
+            )
+            #获取label列表
+            label_list = LabelServer.getAllLabelList(
+                LabelServer(),proj_id=target_val[0]['id']
+            )
+            #获取segment列表
+            if(len(imagelist["data"])):
+                segment_list = SegmentServer.getAllSegmentList(
+                    SegmentServer(),img_id=imagelist["data"][0]['id']
+                )
+        return {"imagelist": imagelist, "project_list": target_val,"label_list":label_list,"segment_list":segment_list}
     def del_proj(self, proj_id):
+        obj = db_mysql_detail()
         # 删除与项目相关的 图片
+        obj.deleteItem_condition(where_condition=" proj_id="+str(proj_id)+" ", tablename='images')
         # 删除与项目相关的 label
+        obj.deleteItem_condition(where_condition=" proj_id="+str(proj_id)+" ", tablename='label')
         # 删除与项目相关的 segment
+        obj.deleteItem_condition(where_condition=" proj_id="+str(proj_id)+" ", tablename='segment')
         # 删除项目
-        print(1)
+        return obj.deleteItem(id=proj_id, tablename='project')
 
 
 if __name__ == "__main__":
     # proj_url="/Users/liudun/Desktop/anno_tools/AnnotationTools/demo_imgs"
-    res=ProjectServer.getProjectList(
-        ProjectServer()
+    res=ProjectServer.getProjectInfo(
+        ProjectServer(),proj_id=18
     )
     print(res)

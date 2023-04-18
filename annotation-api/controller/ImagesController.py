@@ -1,5 +1,9 @@
 from server.ImagesServer import ImagesServer
+<<<<<<< HEAD
 from server.SegmentServer import SegmentServer
+=======
+from server.PublicServer import PublicServer
+>>>>>>> 6eac0e736ecc73de9b8a5eb1473dd22da812728a
 from flask import Blueprint, request
 from utils.HandleData import HandleData
 from utils.MyResultRole import MyResultRole
@@ -64,6 +68,15 @@ def get_segment():
     
     
     
+
+@image_api.route('/image/clear_img_segment', methods=['POST', 'GET'])
+# 分页查询images列表
+def clear_img_segment(img_id=0):
+    img_id = HandleData.request_parse_equal(img_id, locals())
+    res = PublicServer.clear_img_segment(PublicServer(),img_id=img_id)
+    return MyResultRole.ResSuccess(data=res)
+
+
 
 
 

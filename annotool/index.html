@@ -18,11 +18,11 @@
     <div class="home" id="home">
         <el-card class="box-card">
             <el-tabs tab-position="top" type="border-card" style="min-height: 580px;">
-                <el-tab-pane label="Project folders" class="list_class">
+                <el-tab-pane label="Projects" class="list_class">
                     <el-input placeholder="Album folder address" v-model="directoryUrl">
                         <el-button slot="append" icon="el-icon-folder-add" @click="addNewProj()"></el-button>
                     </el-input>
-                    <el-switch v-model="switch_value" active-text="增加并切换新项目" style="margin-top:10px">
+                    <!-- <el-switch v-model="switch_value" active-text="增加并切换新项目" style="margin-top:10px"> -->
                     </el-switch>
                     <el-empty :image-size="200" v-show="tableData.length == 0"></el-empty>
                     <el-table v-show="tableData.length != 0" ref="singleTable" :data="tableData" highlight-current-row
@@ -48,17 +48,16 @@
                 <el-tab-pane label="TargetMasks" class="list_class">
                     <el-empty :image-size="200" v-if="target_polygon_arr.length == 0"></el-empty>
                     <!-- <div class="list_class_targetmasks" > -->
-                    <el-collapse accordion v-else v-model="collapse_activeName" @change="collapse_activeNamechange">
-                        <el-collapse-item v-for="(item, index) in target_polygon_arr" :key="index" :name="index + ''">
-                            <template slot="title">ID : {{ item.id }}
-                                <div>
-                                    {{ item.name }}
-                                </div>
-                            </template>
-                            <el-avatar shape="square" :size="100" fit="contain"
-                                src="https://fuss10.elemecdn.com/e/5d/4a731a90594a4af544c0c25941171jpeg.jpeg"></el-avatar>
-                        </el-collapse-item>
-                    </el-collapse>
+                    <el-upload class="upload-demo" action="#" :file-list="target_polygon_arr" list-type="picture"
+                        :auto-upload="false" v-else>
+                        <!-- <el-button size="small" type="primary" style="display: none;">点击上传</el-button>
+                        <div slot="tip" class="el-upload__tip" style="display: none;">只能上传jpg/png文件，且不超过500kb</div> -->
+                        <div slot="file" slot-scope="{file}" class="choose_mask_class">
+                            <img :src="target_backImageInfo.BackgroundImageUrl" class="el-upload-list__item-thumbnail" alt>
+                            <a class="el-upload-list__item-name">{{file.label_id?"label_id : "+file.label_id:""}}</a>
+                            <i class="el-icon-close" @click="del_segment(file)"></i>
+                        </div>
+                    </el-upload>
                 </el-tab-pane>
             </el-tabs>
         </el-card>
@@ -66,7 +65,8 @@
             <div class="btnwrap">
                 <el-button type="primary" @click="undoDraw()" size="medium" icon="el-icon-back">撤销</el-button>
                 <el-button type="primary" @click="redoDraw()" size="medium">重做<i class="el-icon-right"></i></el-button>
-                <el-button type="primary" @click="clear()" size="medium" icon="el-icon-refresh">清除</el-button>
+                <el-button type="primary" @click="clear()" size="medium" icon="el-icon-refresh">清空画布</el-button>
+                <el-button type="primary" @click="download_annotation()" size="medium" icon="el-icon-download">下载annotation.txt</el-button>
             </div>
             <el-card class="box-card-canvas">
                 <canvas id="c" width="800" height="600"></canvas>
@@ -113,7 +113,7 @@
                         <el-col :span="12" style="padding: 2px;" v-for="(item, index) in imageList.data" :key="index">
                             <!-- <el-card shadow="hover" :body-style="{padding:'2px'}"> -->
                             <el-image :src="basehtttpurl+item.img_url"
-                                @click="backgroundImageChangeFromImageList(index, basehtttpurl+item.img_url)"></el-image>
+                                @click="backgroundImageChangeFromImageList(item.id, basehtttpurl+item.img_url)"></el-image>
                             <!-- </el-card> -->
                         </el-col>
                     </el-row>
@@ -136,7 +136,6 @@
         el: '#home',
         data() {
             return {
-                collapse_activeName: '0',
                 directoryUrl: "",
                 //project folders => table data
                 tableData: [
@@ -178,11 +177,14 @@
                 stateArr: [],
                 isRedoing: false,
                 // BackgroundImageUrl: 'https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/27d1b4e5f8824198b6d51a2b1c2d0d75~tplv-k3u1fbpfcp-zoom-crop-mark:400:400:400:400.awebp',
-                BackgroundImageUrl: 'https://cube.elemecdn.com/6/94/4d3ea53c084bad6931a56d5158a48jpeg.jpeg',
-                target_backImageInfo: {},
-                target_polygon_arr: [],
+                // BackgroundImageUrl: 'https://cube.elemecdn.com/6/94/4d3ea53c084bad6931a56d5158a48jpeg.jpeg',
+                target_backImageInfo: { img_id: 0, "left_position": 0, "top_position": 0, "target_scale": 0, "origin_width": 0, "origin_height": 0, "BackgroundImageUrl": '' },
+                target_polygon_arr: [
+                    { name: "sasdsa", url: "https://cube.elemecdn.com/6/94/4d3ea53c084bad6931a56d5158a48jpeg.jpeg" },
+                    { name: "sasdsa", url: "https://cube.elemecdn.com/6/94/4d3ea53c084bad6931a56d5158a48jpeg.jpeg" }
+                ],
                 target_groups: [],
-                switch_value: true
+                // switch_value: true
             };
         },
         // "https://cube.elemecdn.com/6/94/4d3ea53c084bad6931a56d5158a48jpeg.jpeg",
@@ -206,6 +208,21 @@
             }
         },
         methods: {
+            download_annotation(){
+                // 下载文件
+                console.log("download file"); 
+            },
+            del_segment(target_file) {
+                axiosPost("segment/deleteSegment",
+                    {
+                        segment_id: target_file.id,
+                        img_id: target_file.img_id
+                    })
+                    .then(res => {
+                        this.target_polygon_arr=res.data.data
+                        this.$message.success("delete segment success!")
+                    })
+            },
             getdatefilter(temp_time) {
                 var temp_time2 = new Date(temp_time * 1000)
                 return (temp_time2.getFullYear()) + "-"
@@ -218,11 +235,11 @@
                 axiosGet("project/getProjectList", {})
                     .then(res => {
                         if (res.data.success) {//处理成功
-                            var imagelist = res.data.data.imagelist
+                            // var imagelist = res.data.data.imagelist
                             this.dynamicTags = res.data.data.label_list
                             var project_list = res.data.data.project_list
 
-                            var segment_list = res.data.data.segment_list
+                            this.target_polygon_arr = res.data.data.segment_list
 
                             project_list.forEach(itemxxx => {
                                 itemxxx.date = this.getdatefilter(itemxxx.create_time)
@@ -234,14 +251,13 @@
                             this.imageList = res.data.data.imagelist
                             this.setCurrent(this.tableData[0])//table选中
                             //初始化页面
-                            this.BackgroundImageUrl = this.imageList.data.length ? this.basehtttpurl + this.imageList.data[0].img_url : ''
-                            if (this.BackgroundImageUrl) {
-                                this.backgroundImageChangeFromImageList(0, this.BackgroundImageUrl)
+                            // this.BackgroundImageUrl = this.imageList.data.length ? this.basehtttpurl + this.imageList.data[0].img_url : ''
+                            this.target_backImageInfo.BackgroundImageUrl = this.imageList.data.length ? this.basehtttpurl + this.imageList.data[0].img_url : ''
+                            if (this.target_backImageInfo.BackgroundImageUrl) {
+                                this.backgroundImageChangeFromImageList(this.imageList.data[0].id, this.target_backImageInfo.BackgroundImageUrl)
                             } else {
                                 this.$message.warning("No valid images available！")
                             }
-
-
                         }
                     })
             },
@@ -325,42 +341,7 @@
                 this.target_groups = temp_target
             },
             checkbox_changeFun(val) {
-                // console.log(val);
-                // console.log(this.collapse_activeName);
-                if (this.collapse_activeName) {
-                    if (!this.target_polygon_arr.length) {
-                        //   this.$message.error("还没有mask results！") 
-                        return
-                    }
-                    this.target_polygon_arr[this.collapse_activeName].id = val[0]
-                }
-            },
-            collapse_activeNamechange(val) {
                 console.log(val);
-            },
-            getmaskRes() {
-                //遍历所有polygon opacity==0.4
-                this.target_polygon_arr = []
-                var temp_obj = {}
-                var flag = false
-                this.canvas.forEachObject(itemx => {
-                    if (itemx.type == "polygon" && itemx.opacity == 0.4) {
-                        temp_obj = {
-                            id: -1,
-                            item: itemx,
-                            name: ''
-                        }
-                        flag = false
-                        this.target_polygon_arr.forEach(element => {
-                            if (element.item == itemx) {
-                                flag = true
-                            }
-                        })
-                        if (!flag) {
-                            this.target_polygon_arr.push(temp_obj)
-                        }
-                    }
-                })
             },
             get_targetCanvas_scale(img_width, img_height) {//img 的缩放比例
                 //保证 最长边小于canvas尺寸
@@ -376,7 +357,13 @@
                     left_position = this.canvas.width / 2 - img_width * target_scale / 2
                     top_position = 0
                 }
-                this.target_backImageInfo = { "left_position": left_position, "top_position": top_position, "target_scale": target_scale, "origin_width": img_width, "origin_height": img_height }
+                // this.target_backImageInfo = { "left_position": left_position, "top_position": top_position, "target_scale": target_scale, "origin_width": img_width, "origin_height": img_height }
+                this.target_backImageInfo.left_position = left_position
+                this.target_backImageInfo.top_position = top_position
+                this.target_backImageInfo.target_scale = target_scale
+                this.target_backImageInfo.origin_width = img_width
+                this.target_backImageInfo.origin_height = img_height
+
                 return this.target_backImageInfo
             },
             //增加新的项目
@@ -403,9 +390,9 @@
                         this.imageList = res.data.data.imagelist
                         this.setCurrent(this.tableData[0])//table选中
                         //初始化页面
-                        this.BackgroundImageUrl = this.imageList.data.length ? this.basehtttpurl + this.imageList.data[0].img_url : ''
-                        if (this.BackgroundImageUrl) {
-                            this.backgroundImageChangeFromImageList(0, this.BackgroundImageUrl)
+                        this.target_backImageInfo.BackgroundImageUrl = this.imageList.data.length ? this.basehtttpurl + this.imageList.data[0].img_url : ''
+                        if (this.target_backImageInfo.BackgroundImageUrl) {
+                            this.backgroundImageChangeFromImageList(this.imageList.data[0].id, this.target_backImageInfo.BackgroundImageUrl)
                         } else {
                             this.$message.warning("No valid images available！")
                         }
@@ -424,38 +411,118 @@
                 });
             },
             handlelabeleditInputConfirm(index) {
-                // 修改label信息  需要访问后端
-                if (this.inputValue == this.dynamicTags[index]) {
+                //不能为空
+                if (!this.inputValue.trim().length) {
                     this.labeleditinputVisible = -1;
                     this.inputValue = '';
                     return
                 }
-                if (this.dynamicTags.indexOf(this.inputValue) >= 0) {
+                var hasExistFlagindex = this.judge_itemval_obj(this.dynamicTags, "name", this.inputValue)
+                if (hasExistFlagindex >= 0) {
                     this.$message.error("The name of the label is duplicate, please re-enter!")
+                    this.labeleditinputVisible = -1;
+                    this.inputValue = '';
                     return
                 }
-                let inputValue = this.inputValue;
-                if (inputValue) {
-                    this.dynamicTags[index] = inputValue;
-                }
+                //添加记录
+                axiosPost("label/editLabel",
+                    {
+                        id: this.dynamicTags[index].id,
+                        name: this.inputValue,
+                        proj_id: this.currentRow.id
+                    })
+                    .then(res => {
+                        this.dynamicTags = []
+                        this.dynamicTags = res.data.data
+
+                        if (res.data.success) {//处理成功
+                            this.$message.success("`" + this.dynamicTags[index].name + "`修改成功！")
+                        }
+                    })
                 this.labeleditinputVisible = -1;
                 this.inputValue = '';
             },
             //左侧table的操作
             setCurrent(row) {
+                this.currentRow = row
                 this.$refs.singleTable.setCurrentRow(row);
             },
             handleCurrentChange(val) {
-                this.currentRow = val;
+                if (this.currentRow.id == val.id) {
+                    return
+                }
+                this.$confirm('切换项目并不会删除已有操作数据, 是否继续?', '提示', {
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                    type: 'warning'
+                }).then(() => {
+                    this.currentRow = val;
+                    axiosGet("project/getProjectInfo", {
+                        proj_id: val.id
+                    })
+                        .then(res => {
+                            if (res.data.success) {//处理成功
+                                this.dynamicTags = res.data.data.label_list
+
+                                this.target_polygon_arr = res.data.data.segment_list
+
+                                this.imageList = res.data.data.imagelist
+                                //初始化页面
+                                // this.BackgroundImageUrl = this.imageList.data.length ? this.basehtttpurl + this.imageList.data[0].img_url : ''
+                                this.target_backImageInfo.BackgroundImageUrl = this.imageList.data.length ? this.basehtttpurl + this.imageList.data[0].img_url : ''
+                                if (this.target_backImageInfo.BackgroundImageUrl) {
+                                    this.backgroundImageChangeFromImageList(this.imageList.data[0].id, this.target_backImageInfo.BackgroundImageUrl)
+                                } else {
+                                    this.$message.warning("No valid images available！")
+                                }
+                            }
+                        })
+                })
+                    .catch(() => {
+                        this.setCurrent(this.currentRow)
+                    });
+
             },
-            backgroundImageChangeFromImageList(index, imgurl = "https://cube.elemecdn.com/6/94/4d3ea53c084bad6931a56d5158a48jpeg.jpeg") {
-                this.BackgroundImageUrl = imgurl
-                this.clear()
+            // imgurl = "https://cube.elemecdn.com/6/94/4d3ea53c084bad6931a56d5158a48jpeg.jpeg"
+            backgroundImageChangeFromImageList(id, imgurl) {
+                // this.BackgroundImageUrl = imgurl
+                this.target_backImageInfo.BackgroundImageUrl = imgurl
+                this.target_backImageInfo.img_id = id
+
+                this.canvas.clear();
+                this.initBackgroundImage()
+                //获取segment信息
+                axiosGet("segment/getSegmentList", {
+                    img_id: id
+                })
+                    .then(res => {
+                        this.target_polygon_arr = []
+                        this.target_polygon_arr = res.data.data
+                    })
+
+
+                this.resetMove();
+                this.isRedoing = false;
+                this.stateArr = [];
                 this.recoverzoom()
             },
             handleClose(id, tag) {
                 // 删除label
-                // this.dynamicTags.splice(this.dynamicTags.indexOf(tag), 1);
+                axiosPost("label/deleteLabel",
+                    {
+                        label_id: id,
+                        proj_id: this.currentRow.id
+                    })
+                    .then(res => {
+                        if (res.data.success) {//处理成功
+                            this.$message.success("`" + tag + "`删除成功！")
+                        }
+                        this.dynamicTags = []
+                        this.dynamicTags = res.data.data
+                    })
+                    .catch(err => {
+                        this.$message.error("未知错误！")
+                    })
             },
 
             showInput() {
@@ -464,17 +531,49 @@
                     this.$refs.saveTagInput.$refs.input.focus();
                 });
             },
+            // obj=[{itemname:itemvalue}]
+            judge_itemval_obj(obj, itemname = "name", itemvalue) {
+                var index_flag = -1
+                obj.forEach((itemmmm, indexxxxx) => {
+                    if (itemmmm[itemname] == itemvalue) {
+                        index_flag = indexxxxx
+                    }
+                })
+                return index_flag
+            },
             handleInputConfirm() {
-                if (this.dynamicTags.indexOf(this.inputValue) >= 0) {
+                if (!this.inputValue.trim().length) {
+                    // this.$message.error("label不能为空！")
+                    this.inputVisible = false;
+                    this.inputValue = '';
+                    return
+                }
+                var hasExistFlagindex = this.judge_itemval_obj(this.dynamicTags, "name", this.inputValue)
+                if (hasExistFlagindex >= 0) {
                     this.$message.error("The name of the label is duplicate, please re-enter!")
                     return
                 }
-                let inputValue = this.inputValue;
-                if (inputValue) {
-                    this.dynamicTags.push(inputValue);
-                }
-                this.inputVisible = false;
-                this.inputValue = '';
+                //添加记录
+                axiosPost("label/addLabel",
+                    {
+                        name: this.inputValue,
+                        proj_id: this.currentRow.id
+                    })
+                    .then(res => {
+                        if (res.data.success) {//处理成功
+                            this.$message.success("`" + this.inputValue + "`添加成功！")
+                        }
+                        console.log(res);
+                        this.dynamicTags = res.data.data
+                        this.inputVisible = false;
+                        this.inputValue = '';
+                    })
+                    .catch(err => {
+                        this.$message.error("未知错误！")
+                        this.inputVisible = false;
+                        this.inputValue = '';
+                    })
+
             },
             recoverzoom() {
                 this.canvas.setZoom(1)
@@ -482,7 +581,7 @@
             },
             initBackgroundImage() {
                 fabric.Image.fromURL(
-                    this.BackgroundImageUrl,
+                    this.target_backImageInfo.BackgroundImageUrl,
                     (img) => {
                         var targetCanvasVal = this.get_targetCanvas_scale(img.width, img.height)
                         // 设置背景图
@@ -721,12 +820,25 @@
                 this.mouseTo = {};
             },
             clear() {
-                this.canvas.clear();
-                this.initBackgroundImage()
+                //远程删除segment结果
+                axiosPost("image/clear_img_segment",
+                    {
+                        img_id: this.target_backImageInfo.img_id
+                    })
+                    .then(res => {
+                        if (!res.data.success) {
+                            this.$message.error("清空失败！")
+                            return
+                        }
+                        this.target_polygon_arr=res.data.data
+                        this.canvas.clear();
 
-                this.resetMove();
-                this.isRedoing = false;
-                this.stateArr = [];
+                        this.initBackgroundImage()
+
+                        this.resetMove();
+                        this.isRedoing = false;
+                        this.stateArr = [];
+                    })
             },
             //监听双击事件
             listenclickontarget() {
@@ -990,6 +1102,10 @@
         color: #9195a3;
         font-size: 12px;
     }
+
+    /* .choose_mask_class:focus-within .el-upload-list__item {
+        margin-bottom: 100px;
+    } */
 </style>
 
 </html>

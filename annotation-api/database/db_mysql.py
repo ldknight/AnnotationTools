@@ -114,7 +114,7 @@ class db_mysql_detail():
             #处理包含引号的字符串HandleData.strToFormtype
             sql += "%s='%s'," % (k, HandleData.strToFormtype(v))
         sql = sql.rstrip(',')
-        sql += ' where %s' % where
+        sql += ' where %s ' % where
         print(sql)
         rowcount=0
         try:
@@ -144,16 +144,22 @@ class db_mysql_detail():
         order = 'order' in kwargs and 'order by ' + kwargs['order'] or ''
         sql = 'select %s from %s %s %s limit 1' % (field, table, where, order)
         print(sql)
-        data=None
+        temp_arr=[]
         try:
             # 执行SQL语句
             self.__cursor.execute(sql)
             # 使用 fetchone() 方法获取单条数据.
             data = self.__cursor.fetchone()
+            tablename_arr = self.get_column_name(table)
+            if tablename_arr:
+                temp_json = {}
+                for index3, item3 in enumerate(data):
+                    temp_json[tablename_arr[index3]] = item3
+                temp_arr.append(temp_json)
         except:
             # 发生错误时回滚
             self.__conn.rollback()
-        return data
+        return temp_arr
 
     '''
         # 查所有数据
@@ -284,6 +290,25 @@ class db_mysql_detail():
         sql += 'delete_time=' + str(int(time.time()))
         sql += ' where id=%s ' % id
         print(sql)
+        try:
+            # 执行SQL语句
+            self.__cursor.execute(sql)
+            # 提交到数据库执行
+            self.__conn.commit()
+            # 影响的行数
+            rowcount = self.__cursor.rowcount
+        except:
+            # 发生错误时回滚
+            self.__conn.rollback()
+        return rowcount
+    
+    #删除某条数据 在某个条件下 返回处理了多少行
+    def deleteItem_condition(self, where_condition, tablename):
+        sql = 'update %s set ' % tablename
+        sql += 'delete_time=' + str(int(time.time()))
+        sql += ' where %s ' % where_condition
+        print(sql)
+        rowcount=0
         try:
             # 执行SQL语句
             self.__cursor.execute(sql)
