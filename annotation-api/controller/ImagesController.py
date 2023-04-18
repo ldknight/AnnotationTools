@@ -28,7 +28,6 @@ def getImageList(pageNo=1, page_size=20, proj_id=0):
     res = ImagesServer.limit_offset_query(ImagesServer(), pageNo=pageNo, page_size=page_size,proj_id=proj_id)
     return MyResultRole.ResSuccess(data=res)
 
-#
 def ndarray_to_list(d):
     for value in d:
         for key, v in value.items():
