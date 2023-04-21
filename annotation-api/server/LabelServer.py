@@ -47,7 +47,7 @@ class LabelServer():
         obj = db_mysql_detail()
         #同时要修改所有与label相关的segment信息
         where_str = " delete_time is null and label_id="+str(label_id)+" "
-        json_data={"label_id":"NULL"}
+        json_data={"label_id":""}
         dict_request_data = HandleData.jsonToDict(json_data)
         obj.update(table='segment', where=where_str, items=dict_request_data)
         obj.deleteItem(id=label_id, tablename='label')

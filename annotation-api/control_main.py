@@ -1,4 +1,15 @@
-from flask import Flask
+from flask import Flask,current_app
+import os
+import sys
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(BASE_DIR)
+
+sys.path.append("..")
+from segment_anything import sam_model_registry, SamPredictor
+import numpy as np
+import cv2
+from config import sam_checkpoint,device,model_type
 
 app = Flask(__name__)
 
@@ -26,5 +37,24 @@ CORS(app,supports_credentials=True)
 #     return "hello"
 def test():
     return 'test'
+
+# @app.before_first_request
+# def first_request():
+#     print(1)
+
+
 if __name__ == "__main__":
+    sam = sam_model_registry[model_type](checkpoint=BASE_DIR+sam_checkpoint)
+    sam.to(device=device)
+    predictor = SamPredictor(sam)
+    # image = cv2.imread('/Users/liudun/Desktop/anno_tools/AnnotationTools/notebooks/images/truck.jpg')
+    # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    # predictor.set_image(image)
+    
+    with app.app_context():  # 全局变量
+        current_app.predictor=predictor
+        current_app.sam=sam
+        current_app.image=None
+        current_app.image_url=""
+
     app.run()

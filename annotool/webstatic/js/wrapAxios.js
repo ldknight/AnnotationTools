@@ -9,7 +9,7 @@ const root = "http://127.0.0.1:5000/"
 
 const instance = axios.create({
     baseURL:root,
-    timeout:50000
+    timeout:5000000
 })
 //请求拦截
 instance.interceptors.request.use(

@@ -65,7 +65,7 @@ class db_mysql_detail():
         fields = fields.rstrip(',')
         values = values.rstrip(',')
         sql = sql + fields + ") values(" + values + ")"
-        print(sql)
+        # print(sql)
         res=0
         try:
             # 执行SQL语句

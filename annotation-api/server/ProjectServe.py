@@ -28,7 +28,7 @@ class ProjectServer:
         obj = db_mysql_detail()
         where_str = ""
         if proj_url:
-            where_str = " proj_url_ago='" + str(proj_url) + "'"
+            where_str = " proj_url_ago='" + str(proj_url) + "' and delete_time is null"
         if not where_str:
             return {"proj_id": 0}
         target_val = obj.selectTopone(table="project", where=where_str)

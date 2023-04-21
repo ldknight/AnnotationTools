@@ -1,4 +1,5 @@
 <html>
+
 <head>
     <title>Anno Tools</title>
     <script src="webstatic/js/vue.js" type="text/javascript"></script>
@@ -51,10 +52,12 @@
                         :auto-upload="false" v-else>
                         <!-- <el-button size="small" type="primary" style="display: none;">点击上传</el-button>
                         <div slot="tip" class="el-upload__tip" style="display: none;">只能上传jpg/png文件，且不超过500kb</div> -->
-                        <div slot="file" slot-scope="{file}" class="choose_mask_class">
-                            <img :src="target_backImageInfo.BackgroundImageUrl" class="el-upload-list__item-thumbnail" alt>
-                            <a class="el-upload-list__item-name">{{file.label_id?"label_id : "+file.label_id:""}}</a>
-                            <i class="el-icon-close" @click="del_segment(file)"></i>
+                        <div slot="file" slot-scope="{file}" class="choose_mask_class"
+                            @click="segment_item_click(file)">
+                            <img :src="target_backImageInfo.BackgroundImageUrl" class="el-upload-list__item-thumbnail"
+                                alt>
+                            <a :class="'el-upload-list__item-name '+file.target_class">{{file.label_id?"label_id:"+file.label_id:"choose Label~"}}</a>
+                            <i class="el-icon-close" @click.stop="del_segment(file)"></i>
                         </div>
                     </el-upload>
                 </el-tab-pane>
@@ -65,7 +68,9 @@
                 <el-button type="primary" @click="undoDraw()" size="medium" icon="el-icon-back">撤销</el-button>
                 <el-button type="primary" @click="redoDraw()" size="medium">重做<i class="el-icon-right"></i></el-button>
                 <el-button type="primary" @click="clear()" size="medium" icon="el-icon-refresh">清空画布</el-button>
-                <el-button type="primary" @click="download_annotation()" size="medium" icon="el-icon-download">下载annotation.txt</el-button>
+                <el-button type="primary" @click="download_annotation()" size="medium"
+                    icon="el-icon-download">下载annotation.txt</el-button>
+                <!-- <el-button type="primary" size="medium" icon="el-icon-setting">基础设置</el-button> -->
             </div>
             <el-card class="box-card-canvas">
                 <canvas id="c" width="800" height="600"></canvas>
@@ -76,7 +81,6 @@
                     恢复100%
                 </el-button>
             </div>
-
         </div>
         <!-- <div class="right_condoing"> -->
         <el-card class="box-card">
@@ -99,8 +103,8 @@
                                 @keyup.enter.native="() => handlelabeleditInputConfirm(index)"
                                 @blur="() => handlelabeleditInputConfirm(index)" clearable>
                             </el-input>
-                            <el-alert :title="tag.name" type="success" v-else @close="handleClose(tag.id,tag.name)"
-                                style="display:inline-block;width: 160px;"
+                            <el-alert :title="'['+tag.id +'] '+ tag.name" type="success" v-else
+                                @close="handleClose(tag.id,tag.name)" style="display:inline-block;width: 160px;"
                                 @dblclick.native="dbalterlabel(index, tag.name)">
                             </el-alert>
                         </el-checkbox>
@@ -207,9 +211,41 @@
             }
         },
         methods: {
-            download_annotation(){
+            segment_item_click(file) {
+                this.target_polygon_arr.forEach((item, index) => {
+                    // item.target_class=""//设置显性类
+                    if (file.id == item.id) {
+                        item.target_class = "choose_target_seg"
+                        if (file.label_id) {
+                            this.dynamicTags.forEach((itemm, indexx) => {
+                                if (itemm.id == file.label_id) {
+                                    this.target_label = [indexx]
+                                }
+                            })
+                        } else {
+                            this.target_label = []
+                        }
+                    } else {
+                        item.target_class = ""
+                    }
+                })
+            },
+            download_annotation() {
                 // 下载文件
-                console.log("download file"); 
+                console.log("download file");
+                axiosPost("segment/download_annotationtxt",{
+                    proj_id:this.currentRow.id
+                })
+                .then(res=>{
+                    console.log(res);
+                    window.open(res.data.data);
+                    // const dataurl = window.URL.createObjectURL(res.data.data);
+                    // const a = document.createElement('a');
+                    // a.href = res.data.url;
+                    // a.download = res.data.url;
+                    // a.click();
+                    // a.remove();
+                })
             },
             del_segment(target_file) {
                 axiosPost("segment/deleteSegment",
@@ -218,7 +254,9 @@
                         img_id: target_file.img_id
                     })
                     .then(res => {
-                        this.target_polygon_arr=res.data.data
+                        this.target_polygon_arr = res.data.data
+                        this.addsegmentFromsegmentlist()
+
                         this.$message.success("delete segment success!")
                     })
             },
@@ -233,12 +271,18 @@
             initProj() {
                 axiosGet("project/getProjectList", {})
                     .then(res => {
+                        if (!res.data.data.imagelist.data) {
+                            return
+                        }
                         if (res.data.success) {//处理成功
+                            this.imageList = res.data.data.imagelist
+                            
                             // var imagelist = res.data.data.imagelist
                             this.dynamicTags = res.data.data.label_list
                             var project_list = res.data.data.project_list
 
                             this.target_polygon_arr = res.data.data.segment_list
+                            this.addsegmentFromsegmentlist()
 
                             project_list.forEach(itemxxx => {
                                 itemxxx.date = this.getdatefilter(itemxxx.create_time)
@@ -247,10 +291,12 @@
                             })
                             this.tableData = project_list
 
-                            this.imageList = res.data.data.imagelist
+                            
                             this.setCurrent(this.tableData[0])//table选中
                             //初始化页面
                             // this.BackgroundImageUrl = this.imageList.data.length ? this.basehtttpurl + this.imageList.data[0].img_url : ''
+                            console.log(this.imageList);
+                            
                             this.target_backImageInfo.BackgroundImageUrl = this.imageList.data.length ? this.basehtttpurl + this.imageList.data[0].img_url : ''
                             if (this.target_backImageInfo.BackgroundImageUrl) {
                                 this.backgroundImageChangeFromImageList(this.imageList.data[0].id, this.target_backImageInfo.BackgroundImageUrl)
@@ -281,7 +327,6 @@
                 this.canvas.forEachObject(itemm => {
                     temp_obj = { boxes: [], points: [], item: [] }
                     if (itemm.type == "rect" && itemm.left != undefined) {//是矩形就作为一个组//查找与框相交的点
-                        // console.log(itemm);
                         temp_obj.item.push(itemm)
                         left_top = this.handle_currentToOriginPosition(itemm.left, itemm.top)
                         right_bottom = this.handle_currentToOriginPosition(itemm.left + itemm.width, itemm.top + itemm.height)
@@ -299,8 +344,8 @@
                             }
                         })
                         temp_target.push(temp_obj)
-                    } else if (itemm.type == "circle") {//没有被选中的点
-                        // console.log(itemm);
+                    }
+                    else if (itemm.type == "circle") {//没有被选中的点
                         var include_flag = false
                         this.canvas.forEachObject(objxx => {
                             if (objxx.type == "rect" && itemm.isContainedWithinObject(objxx)) {
@@ -340,7 +385,79 @@
                 this.target_groups = temp_target
             },
             checkbox_changeFun(val) {
-                console.log(val);
+                var target_item = null
+                var target_index = -1
+                //修改相应的segment 信息
+                this.target_polygon_arr.forEach((item, index) => {
+                    // item.target_class=""//设置显性类
+                    if (item.target_class == "choose_target_seg") {
+                        target_item = item
+                        target_index = index
+                    }
+                })
+                var temp_target_polygon_arr=this.target_polygon_arr
+                // console.log(target_index);
+                if (val.length) {//修改label_id
+                    if (!target_item) {
+                        this.target_label = []
+                        this.$message.warning("Please choose a segmentation!")
+                        return
+                    }
+                    this.target_polygon_arr=[]
+                    //修改远程segment信息
+                    axiosPost("segment/update_segment",
+                        {
+                            id: target_item.id,
+                            label_id: this.dynamicTags[val[0]].id
+                        })
+                        .then(res => {
+                            temp_target_polygon_arr[target_index] = res.data.data[0]
+                            temp_target_polygon_arr.forEach((item,index)=>{
+                                item.target_class=""
+                                if (index==target_index) {
+                                    item.target_class ="choose_target_seg"
+                                }
+                            })
+
+                            this.target_polygon_arr=temp_target_polygon_arr
+                            console.log(this.target_polygon_arr);
+                        })
+                } else {//checkout没有信息
+                    this.target_polygon_arr=[]
+                    //修改远程segment信息
+                    axiosPost("segment/update_segment",
+                        {
+                            id: target_item.id,
+                            label_id: null
+                        })
+                        .then(res => {
+                            temp_target_polygon_arr[target_index] = res.data.data[0]
+                            temp_target_polygon_arr.forEach((item,index)=>{
+                                item.target_class=""
+                                if (index==target_index) {
+                                    item.target_class ="choose_target_seg"
+                                }
+                            })
+                            this.target_polygon_arr=temp_target_polygon_arr
+                            console.log(this.target_polygon_arr);
+                        })
+                }
+                
+            },
+            //用来更新segment左侧显示信息
+            update_target_polygon_arr(){
+                axiosGet("segment/getSegmentList", {
+                    img_id: this.target_backImageInfo.img_id
+                })
+                .then(res => {
+                    this.target_polygon_arr = []
+                    this.target_polygon_arr = res.data.data
+
+                    this.target_polygon_arr.forEach((item,index)=>{
+                                item.target_class=""
+                            })
+                    this.target_label=[]
+                })
             },
             get_targetCanvas_scale(img_width, img_height) {//img 的缩放比例
                 //保证 最长边小于canvas尺寸
@@ -378,7 +495,7 @@
                     })
                     .then(res => {
                         if (res.data.success) {//处理成功
-                            this.$message.success("`" + proj_url + "`添加成功！")
+                            this.$message.success("`" + this.directoryUrl + "`添加成功！")
                             this.directoryUrl = ""
                         }
                         this.tableData.push({
@@ -389,6 +506,9 @@
                         this.imageList = res.data.data.imagelist
                         this.setCurrent(this.tableData[0])//table选中
                         //初始化页面
+                        if(!this.imageList.length){
+                            
+                        }
                         this.target_backImageInfo.BackgroundImageUrl = this.imageList.data.length ? this.basehtttpurl + this.imageList.data[0].img_url : ''
                         if (this.target_backImageInfo.BackgroundImageUrl) {
                             this.backgroundImageChangeFromImageList(this.imageList.data[0].id, this.target_backImageInfo.BackgroundImageUrl)
@@ -450,6 +570,7 @@
                 if (this.currentRow.id == val.id) {
                     return
                 }
+                return
                 this.$confirm('切换项目并不会删除已有操作数据, 是否继续?', '提示', {
                     confirmButtonText: '确定',
                     cancelButtonText: '取消',
@@ -464,6 +585,7 @@
                                 this.dynamicTags = res.data.data.label_list
 
                                 this.target_polygon_arr = res.data.data.segment_list
+                                this.addsegmentFromsegmentlist()
 
                                 this.imageList = res.data.data.imagelist
                                 //初始化页面
@@ -497,6 +619,8 @@
                     .then(res => {
                         this.target_polygon_arr = []
                         this.target_polygon_arr = res.data.data
+                        this.addsegmentFromsegmentlist()
+
                     })
 
 
@@ -506,6 +630,7 @@
                 this.recoverzoom()
             },
             handleClose(id, tag) {
+                this.dynamicTags = []
                 // 删除label
                 axiosPost("label/deleteLabel",
                     {
@@ -516,8 +641,21 @@
                         if (res.data.success) {//处理成功
                             this.$message.success("`" + tag + "`删除成功！")
                         }
-                        this.dynamicTags = []
                         this.dynamicTags = res.data.data
+
+                        this.target_label = []
+                        this.update_target_polygon_arr()
+                        
+                        // this.target_polygon_arr.forEach((item,index)=>{
+                        //     if (item.target_class=="choose_target_seg"&&item.label_id) {
+                        //         this.dynamicTags.forEach((itemm, indexx) => {
+                        //             if (itemm.id==item.label_id) {
+                        //                 this.target_label = [indexx]
+                        //             }
+                        //         })
+                        //     }
+                        // })
+
                     })
                     .catch(err => {
                         this.$message.error("未知错误！")
@@ -541,6 +679,7 @@
                 return index_flag
             },
             handleInputConfirm() {
+                // console.log(this.target_label);
                 if (!this.inputValue.trim().length) {
                     // this.$message.error("label不能为空！")
                     this.inputVisible = false;
@@ -572,7 +711,6 @@
                         this.inputVisible = false;
                         this.inputValue = '';
                     })
-
             },
             recoverzoom() {
                 this.canvas.setZoom(1)
@@ -641,6 +779,7 @@
                 });
                 this.toggleDrawingObject(canvasObject);
             },
+
             judgeclickPointBeyondArea(point_x, point_y) {
                 let leftBound = this.target_backImageInfo.left_position;
                 let topBound = this.target_backImageInfo.top_position;
@@ -829,7 +968,7 @@
                             this.$message.error("清空失败！")
                             return
                         }
-                        this.target_polygon_arr=res.data.data
+                        this.target_polygon_arr = res.data.data
                         this.canvas.clear();
 
                         this.initBackgroundImage()
@@ -908,6 +1047,20 @@
                 c.hasBorders = c.hasControls = false;
                 this.canvas.add(c);
             },
+            makeRectFun(left, top, width, height) {
+                let canvasObject = new fabric.Rect({
+                    left: left,
+                    top: top,
+                    width: width,
+                    height: height,
+                    stroke: this.colors,
+                    fill: "rgba(47, 234, 28, 0.1)",
+                    strokeWidth: this.strokeWidth,
+                    lockRotation: true,
+                    selectable: true
+                });
+                this.canvas.add(canvasObject);
+            },
             //创建polygon
             create_polygon(target_arr = [{ x: 100, y: 100 }, { x: 100, y: 300 }, { x: 300, y: 300 }, { x: 300, y: 100 }]) {
                 var hexagon = new fabric.Polygon(
@@ -921,12 +1074,13 @@
                         fill: "blue",
                         perPixelTargetFind: true,//必须选中像素点
                         selectable: false, //不可选中
-                        opacity: 0.001
+                        opacity: 0.2
                     }
                 );
                 // Adding it to the canvas
                 this.canvas.add(hexagon);
                 hexagon.hoverCursor = 'default'
+                hexagon.moveTo(0)
             },
             //按键恢复
             // keyDownReview() {
@@ -943,10 +1097,38 @@
                     var e = event || window.event;
                     if (event.code == "Space") {
                         that.getTargetObjectField()
+                        console.log(that.target_groups);
                         if (that.target_groups.length) {
                             console.log("发起请求--.>接口");
+                            const loading = that.$loading({
+                                lock: true,
+                                text: 'Loading',
+                                spinner: 'el-icon-loading',
+                                background: 'rgba(0, 0, 0, 0.7)'
+                            });
+                            axiosPost("image/get_img_segment",
+                                {
+                                    img_id: that.target_backImageInfo.img_id,
+                                    proj_id: that.currentRow.id,
+                                    interest_field: JSON.stringify(that.target_groups)
+                                })
+                                .then(res => {
+                                    // console.log(res);
+                                    // console.log(that.target_groups);
+                                    that.target_polygon_arr = []
+                                    that.target_polygon_arr = res.data.data
+
+                                    that.addsegmentFromsegmentlist()
+                                    loading.close();
+                                    //需要将结果渲染回页面
+                                    //1-清除画布的渲染
+                                    //2-将结果渲染到页面
+                                    //2-1 候选点
+                                    //2-2 目标mask-polygon
+                                    //先整segment
+                                })
                         }
-                        console.log(this.target_groups);
+                        // console.log(that.target_backImageInfo);
                     }
                     // if (e && e.preventDefault) {
                     //     e.preventDefault();
@@ -955,6 +1137,46 @@
                     // }
                 }
             },
+            //渲染segment结果在canvas上
+            addsegmentFromsegmentlist() {
+                this.canvas.clear()
+
+                this.initBackgroundImage()
+                this.resetMove();
+                this.isRedoing = false;
+                this.stateArr = [];
+
+                this.target_polygon_arr.forEach((item, index) => {
+                    item.target_class = ""//设置显性类
+
+                    item.field_items.forEach((itemm, indexx) => {
+                        if (itemm.type == "circle") {
+                            this.makeCurveCircle(itemm.left + 13, itemm.top + 13, itemm.fill)
+                        }
+                        else if (itemm.type == "rect") {
+                            this.makeRectFun(itemm.left, itemm.top, itemm.width, itemm.height)
+                        }
+                    })
+                    //绘制segment（polygon）
+                    var temp_target_polygon_arr = []
+                    if (item.seg_field.segmentation) {
+                        item.seg_field.segmentation.forEach((itemm, indexx) => {
+                            temp_target_polygon_arr = []
+                            for (let i = 0; i < itemm.length; i+=2) {
+                                temp_target_polygon_arr.push({ x: itemm[i] * this.target_backImageInfo.target_scale, y: itemm[i+1] * this.target_backImageInfo.target_scale })
+                            }
+                            this.create_polygon(temp_target_polygon_arr)
+                        })
+                    }
+
+                    // item.seg_field.forEach((itemm, indexx) => {
+                    //     temp_target_polygon_arr.push({ x: itemm[1] * this.target_backImageInfo.target_scale, y: itemm[0] * this.target_backImageInfo.target_scale })
+                    //     // temp_target_polygon_arr.push({ x: itemm[0], y: itemm[1] })
+                    // })
+                    // this.create_polygon(temp_target_polygon_arr)
+                    // console.log("create_polygon");
+                })
+            }
         },
         mounted() {
             this.initfreeDraw();
@@ -969,7 +1191,7 @@
             // this.initBackgroundImage()
 
             // this.create_polygon()
-            // this.create_polygon([{ x: 350, y: 350 }, { x: 350, y: 490 }, { x: 490, y: 490 }, { x: 490, y: 350 }])
+            // this.create_polygon([{ x: 147.0, y: 130.0 }, { x: 141.0, y:102.0 }, { x: 200, y:200 }])
 
         },
         created() {
@@ -1103,9 +1325,24 @@
         font-size: 12px;
     }
 
-    /* .choose_mask_class:focus-within .el-upload-list__item {
-        margin-bottom: 100px;
-    } */
+    .list_class .upload-demo {
+        max-height: 520px !important;
+        overflow: auto;
+    }
+
+    .choose_mask_class {
+        width: 100%;
+        height: 100%;
+    }
+
+    .choose_mask_class .el-upload-list__item-name {
+        margin-right: 0;
+    }
+
+    .choose_mask_class .choose_target_seg {
+        font-weight: bolder;
+        color: red;
+    }
 </style>
 
 </html>

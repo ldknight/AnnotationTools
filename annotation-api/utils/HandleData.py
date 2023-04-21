@@ -3,6 +3,13 @@ import os
 from os.path import dirname, abspath
 import shutil
 from flask import Blueprint,request
+import numpy as np
+import torch
+import cv2
+
+from pycocotools import mask
+from skimage import measure
+
 class HandleData:
     '''
     将json对象转成dict  便返回，方便遍历 for index,item in jsondata
@@ -145,4 +152,97 @@ class HandleData:
         else:
             return False
 
+    '''工具函数 处理boxes'''
+    @staticmethod
+    def handle_points(points=[]):
+        target_points=[]
+        target_label=[]
+        for item in points:
+            temp_arr=[]
+            temp_arr.append(item[0])
+            temp_arr.append(item[1])
+            target_label.append(item[2])
+            target_points.append(temp_arr)
+        return target_points,target_label
+    
+    '''工具函数 预测时处理图片'''
+    @staticmethod
+    def prepare_image(image, transform, device):
+        image = transform.apply_image(image)
+        image = torch.as_tensor(image, device=device.device) 
+        return image.permute(2, 0, 1).contiguous()
+    
+    '''以下两个函数用来解决sql插入引号冲突问题'''
+    '''字符串编码'''
+    @staticmethod
+    def encode(s):
+        return ' '.join([bin(ord(c)).replace('0b', '') for c in s])
+    '''字符串解码'''
+    @staticmethod
+    def decode(s):
+        return ''.join([chr(i) for i in [int(b, 2) for b in s.split(' ')]])
+    
 
+    '''获取mask的边界区域'''
+    @staticmethod
+    def get_segboundery(s):
+        target_segboundery=np.where(s, 255, 0)
+        img=cv2.Canny(np.uint8(target_segboundery),50,100)
+        img[img < 255] = 0
+        row_indices, col_indices = np.where(img == 255)
+        return list(zip(row_indices, col_indices))
+    @staticmethod
+    def default_dump(obj):
+        """Convert numpy classes to JSON serializable objects."""
+        if isinstance(obj, (np.integer, np.floating, np.bool_)):
+            return obj.item()
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        else:
+            return obj
+
+    '''
+        生成coco格式的数据内容
+        @param ground_truth_binary_mask np.array[true/false] eg.[255,258]  2-d
+        @param image_id 
+        @param category_id 
+        @param segment_id 
+    '''
+    @staticmethod
+    def get_coco_res(ground_truth_binary_mask,image_id=0,category_id=0,segment_id=0):
+        temp_ground_truth_binary_mask = ground_truth_binary_mask.astype(int)
+        # ground_truth_binary_mask = np.array([[  0,   0,   0,   0,   0,   0,   0,   0,   0,   0],
+        #                                     [  0,   0,   0,   0,   0,   0,   0,   0,   0,   0],
+        #                                     [  0,   0,   0,   0,   0,   1,   1,   1,   0,   0],
+        #                                     [  0,   0,   0,   0,   0,   1,   1,   1,   0,   0],
+        #                                     [  0,   0,   0,   0,   0,   1,   1,   1,   0,   0],
+        #                                     [  0,   0,   0,   0,   0,   1,   1,   1,   0,   0],
+        #                                     [  1,   0,   0,   0,   0,   0,   0,   0,   0,   0],
+        #                                     [  0,   0,   0,   0,   0,   0,   0,   0,   0,   0],
+        #                                     [  0,   0,   0,   0,   0,   0,   0,   0,   0,   0]], dtype=np.uint8)
+        fortran_ground_truth_binary_mask = np.asfortranarray(temp_ground_truth_binary_mask)
+        encoded_ground_truth = mask.encode(fortran_ground_truth_binary_mask.astype('uint8'))
+        ground_truth_area = mask.area(encoded_ground_truth)
+        ground_truth_bounding_box = mask.toBbox(encoded_ground_truth)
+        contours = measure.find_contours(ground_truth_binary_mask, 0.5)
+        annotation = {
+                "segmentation": [],
+                "area": ground_truth_area.tolist(),
+                "iscrowd": 0,
+                "image_id": image_id,
+                "bbox": ground_truth_bounding_box.tolist(),
+                "category_id": category_id,
+                "id": segment_id,
+                "size":[ground_truth_binary_mask.shape[0],ground_truth_binary_mask.shape[1]]
+            }
+        for contour in contours:
+            contour = np.flip(contour, axis=1)
+            segmentation = contour.ravel().tolist()
+            annotation["segmentation"].append(segmentation)
+
+        return annotation
+    @staticmethod
+    def jsonWrite(infoData,jsonFile):
+        with open(jsonFile, 'w', encoding='utf-8') as jsonhandle:
+            jsoncontent = json.dumps(infoData, indent=4)
+            jsonhandle.write(jsoncontent)

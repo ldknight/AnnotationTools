@@ -1,0 +1,5 @@
+sam_checkpoint = "/sam_vit_h_4b8939.pth"
+# sam_checkpoint = "/root/AnnotationTools/sam_vit_h_4b8939.pth"
+device = "cpu"
+model_type = "default"
+# db_name="/root/AnnotationTools/test.sqlite"
